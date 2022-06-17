@@ -1,4 +1,4 @@
-# p-utils
+# prom-utils
 
 Promise utilities designed for looping.
 

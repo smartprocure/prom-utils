@@ -1,11 +1,11 @@
 {
-  "name": "p-utils",
+  "name": "prom-utils",
   "version": "0.1.0",
   "description": "Promise utilities for looping: rate limiting, queueing/batching, etc.",
   "author": "GovSpend",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": "git://github.com/smartprocure/p-utils.git",
+  "repository": "git://github.com/smartprocure/prom-utils.git",
   "scripts": {
     "prepare": "npm run lint && npm test && npm run build",
     "clean": "rm -rf dist",
