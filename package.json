@@ -20,7 +20,8 @@
     "batch",
     "queue",
     "concurrency",
-    "control"
+    "control",
+    "loop"
   ],
   "license": "ISC",
   "prettier": {

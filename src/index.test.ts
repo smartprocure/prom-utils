@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals'
 import { setTimeout } from 'node:timers/promises'
-import { rateLimit } from './index'
+import { batchQueue, rateLimit } from './fns'
 
 describe('rateLimit', () => {
   test('should add up to limit - 1 promises without delay', async () => {
@@ -40,5 +40,24 @@ describe('rateLimit', () => {
     expect(elapsed).toBeGreaterThanOrEqual(2000)
     expect(elapsed).toBeLessThan(3000)
     expect(done.length).toEqual(5)
+  })
+})
+
+describe('batchQueue', () => {
+  test('should batch items up to batchSize', async () => {
+    const calls: any[] = []
+    const fn = async (records: any[]) => {
+      calls.push(records)
+    }
+    const batchSize = 2
+
+    const queue = batchQueue(fn, batchSize)
+    const records = ['Joe', 'Frank', 'Bob']
+
+    for (const record of records) {
+      await queue.enqueue(record)
+    }
+    await queue.flush()
+    expect(calls).toEqual([ [ 'Joe', 'Frank' ], [ 'Bob' ] ])
   })
 })
