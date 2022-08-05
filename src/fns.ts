@@ -44,7 +44,7 @@ export const rateLimit = (limit: number) => {
  * Batch calls via a local queue. This can be used to batch values before
  * writing to a database, for example.
  * 
- * Automatically executes `fn` when `batchSize` is reached or timeout is
+ * Automatically executes `fn` when `batchSize` is reached or `timeout` is
  * reached, if set. The timer will be started when the first item is
  * enqueued and reset when flush is called explicitly or implicitly.
  *

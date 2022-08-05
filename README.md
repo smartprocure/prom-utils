@@ -23,7 +23,7 @@ await limiter.finish()
 Batch calls via a local queue. This can be used to batch values before
 writing to a database, for example.
 
-Automatically executes `fn` when `batchSize` is reached or timeout is
+Automatically executes `fn` when `batchSize` is reached or `timeout` is
 reached, if set. The timer will be started when the first item is
 enqueued and reset when flush is called explicitly or implicitly.
 
@@ -31,6 +31,29 @@ Call `queue.flush()` to flush explicitly.
 
 Batch size defaults to 500. The last result of calling `fn` can be
 obtained by referencing `lastResult` on the returned object.
+
+**Types**
+
+```typescript
+export type QueueResult = {
+  flush(): Promise<void>
+  enqueue(item: any): Promise<void>
+  lastResult?: any
+}
+
+export interface QueueOptions {
+  batchSize?: number
+  timeout?: number
+}
+
+export type Queue = (
+  fn: (arr: any[]) => any,
+  options?: QueueOptions
+) => QueueResult
+
+```
+
+**Example**
 
 ```typescript
 const writeToDatabase = async (records) => {...}
