@@ -1,4 +1,7 @@
+import _debug from 'debug'
 import { Queue, QueueResult } from './types'
+
+const debug = _debug('prom-utils')
 
 /**
  * Limit the concurrency of promises. This can be used to control
@@ -37,10 +40,15 @@ export const rateLimit = (limit: number) => {
 }
 
 /**
- * Batch calls via a local queue. Automatically executes `fn`
- * when `batchSize` is reached. Call `queue.flush()` to flush explicitly.
- * This can be used to batch values before writing to a database, for
- * example.
+ *
+ * Batch calls via a local queue. This can be used to batch values before
+ * writing to a database, for example.
+ * 
+ * Automatically executes `fn` when `batchSize` is reached or timeout is
+ * reached, if set. The timer will be started when the first item is
+ * enqueued and reset when flush is called explicitly or implicitly.
+ *
+ * Call `queue.flush()` to flush explicitly.
  *
  * Batch size defaults to 500. The last result of calling `fn` can be
  * obtained by referencing `lastResult` on the returned object.
@@ -55,32 +63,56 @@ export const rateLimit = (limit: number) => {
  * await queue.flush()
  * ```
  */
-export const batchQueue: Queue = (fn, batchSize = 500) => {
+export const batchQueue: Queue = (fn, options = {}) => {
+  const { batchSize = 500, timeout } = options
+  debug('options %o', options)
   let queue: any[] = []
+  let timeoutId: ReturnType<typeof setTimeout>
+  let prom: Promise<any>
 
   /**
-   * Returns result of calling fn on queue. Clears the queue.
+   * Call fn on queue and clear the queue.
    */
   const flush = async () => {
+    debug('flush called - queue length %d', queue.length)
+    // Clear the timeout
+    clearTimeout(timeoutId)
+    debug('clearTimeout called')
+    // Wait for a timeout initiated flush to complete
+    await prom
+    // Queue is not empty
     if (queue.length) {
+      debug('fn called')
       // Call fn with queue
       const result = await fn(queue)
       obj.lastResult = result
       // Reset the queue
       queue = []
-      return result
+      debug('queue reset')
     }
   }
 
   /**
    * Enqueue an item. If the batch size is reached wait
-   * for queue to flushed.
+   * for queue to be flushed.
    */
   const enqueue = async (item: any) => {
+    debug('enqueue called')
+    // Wait for a timeout initiated flush to complete
+    await prom
+    // Start a timer if the queue is empty and timeout is set
+    if (queue.length === 0 && timeout) {
+      timeoutId = setTimeout(() => {
+        debug('timeout cb')
+        prom = flush()
+      }, timeout)
+      debug('setTimeout called')
+    }
     // Add item to queue
     queue.push(item)
     // Batch size reached
     if (queue.length === batchSize) {
+      debug('batchSize reached')
       // Wait for queue to be flushed
       await flush()
     }
@@ -89,4 +121,3 @@ export const batchQueue: Queue = (fn, batchSize = 500) => {
   const obj: QueueResult = { flush, enqueue }
   return obj
 }
-

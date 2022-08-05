@@ -1,7 +1,15 @@
 export type QueueResult = {
-  flush(): Promise<any>
+  flush(): Promise<void>
   enqueue(item: any): Promise<void>
   lastResult?: any
 }
 
-export type Queue = (fn: (arr: any[]) => any, batchSize?: number) => QueueResult
+export interface QueueOptions {
+  batchSize?: number
+  timeout?: number
+}
+
+export type Queue = (
+  fn: (arr: any[]) => any,
+  options?: QueueOptions
+) => QueueResult

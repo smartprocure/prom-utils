@@ -51,13 +51,68 @@ describe('batchQueue', () => {
     }
     const batchSize = 2
 
-    const queue = batchQueue(fn, batchSize)
+    const queue = batchQueue(fn, { batchSize })
     const records = ['Joe', 'Frank', 'Bob']
 
     for (const record of records) {
       await queue.enqueue(record)
     }
     await queue.flush()
-    expect(calls).toEqual([ [ 'Joe', 'Frank' ], [ 'Bob' ] ])
+    expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
+  })
+  test('should flush queue if timeout is reached before batchSize', async () => {
+    const calls: any[] = []
+    const fn = async (records: any[]) => {
+      calls.push(records)
+    }
+    const batchSize = 2
+    const timeout = 50
+
+    const queue = batchQueue(fn, { batchSize, timeout })
+    const records = ['Joe', 'Frank', 'Bob']
+
+    for (const record of records) {
+      await queue.enqueue(record)
+      await setTimeout(75)
+    }
+    await queue.flush()
+    expect(calls).toEqual([['Joe'], ['Frank'], ['Bob']])
+  })
+  test('should reset timer if batchSize is reached before timeout', async () => {
+    const calls: any[] = []
+    const fn = async (records: any[]) => {
+      calls.push(records)
+    }
+    const batchSize = 2
+    const timeout = 100
+
+    const queue = batchQueue(fn, { batchSize, timeout })
+    const records = ['Joe', 'Frank', 'Bob']
+
+    for (const record of records) {
+      await queue.enqueue(record)
+      await setTimeout(20)
+    }
+    await queue.flush()
+    expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
+  })
+  test('fn should only be called once if timeout flush was triggered before queue.flush()', async () => {
+    const calls: any[] = []
+    const fn = async (records: any[]) => {
+      calls.push(records)
+      await setTimeout(100)
+    }
+    const batchSize = 5
+    const timeout = 20
+
+    const queue = batchQueue(fn, { batchSize, timeout })
+    const records = ['Joe', 'Frank', 'Bob']
+
+    for (const record of records) {
+      await queue.enqueue(record)
+    }
+    await setTimeout(50)
+    await queue.flush()
+    expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
   })
 })
