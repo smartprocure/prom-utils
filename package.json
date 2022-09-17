@@ -24,7 +24,8 @@
     "loop",
     "defer",
     "deferred",
-    "pause"
+    "pause",
+    "pausable"
   ],
   "license": "ISC",
   "prettier": {
