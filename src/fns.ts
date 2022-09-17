@@ -1,5 +1,5 @@
 import _debug from 'debug'
-import { Queue, QueueResult } from './types'
+import { Deferred, Queue, QueueResult } from './types'
 
 const debug = _debug('prom-utils')
 
@@ -43,7 +43,7 @@ export const rateLimit = (limit: number) => {
  *
  * Batch calls via a local queue. This can be used to batch values before
  * writing to a database, for example.
- * 
+ *
  * Automatically executes `fn` when `batchSize` is reached or `timeout` is
  * reached, if set. The timer will be started when the first item is
  * enqueued and reset when flush is called explicitly or implicitly.
@@ -120,4 +120,55 @@ export const batchQueue: Queue = (fn, options = {}) => {
 
   const obj: QueueResult = { flush, enqueue }
   return obj
+}
+
+/**
+ * Defer resolving a promise until `done` is called.
+ */
+export function defer(): Deferred {
+  // eslint-disable-next-line
+  let done = () => {}
+  const promise = new Promise<void>((resolve) => {
+    // Swap original done fn with promise resolve fn
+    done = () => resolve()
+  })
+  return {
+    done,
+    promise,
+  }
+}
+
+/**
+ * Pause a loop by awaiting `proceed`. When `pause` is called `proceed` will
+ * return a promise that is resolved when `resume` is called. Otherwise,
+ * `proceed` will return immediately. If `timeout` is passed, `resume` will
+ * be called after `timeout` if it is not manually called first.
+ *
+ * ```typescript
+ * const shouldProcess = pausable()
+ *
+ * onSomeCondition(shouldProcess.pause)
+ * onSomeOtherCondition(shouldProcess.resume)
+ *
+ * for (const record of records) {
+ *   await shouldProcess.proceed()
+ *   await processRecord(record)
+ * }
+ * ```
+ */
+export const pausable = (timeout?: number) => {
+  let deferred: Deferred | undefined
+  let timeoutId: ReturnType<typeof setTimeout>
+  const pause = () => {
+    deferred = defer()
+    if (timeout) {
+      timeoutId = setTimeout(() => deferred?.done(), timeout)
+    }
+  }
+  const resume = () => {
+    clearTimeout(timeoutId)
+    deferred?.done()
+  }
+  const proceed = () => deferred?.promise
+  return { pause, resume, proceed }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals'
 import { setTimeout } from 'node:timers/promises'
-import { batchQueue, rateLimit } from './fns'
+import { defer, batchQueue, rateLimit, pausable } from './fns'
 
 describe('rateLimit', () => {
   test('should add up to limit - 1 promises without delay', async () => {
@@ -114,5 +114,64 @@ describe('batchQueue', () => {
     await setTimeout(50)
     await queue.flush()
     expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
+  })
+})
+
+describe('pausable', () => {
+  test('should pause and resume', async () => {
+    const shouldProcess = pausable()
+    const processed: string[] = []
+    const processRecord = async (record: string) => {
+      processed.push(record)
+      await setTimeout(50)
+    }
+    const records = ['Joe', 'Frank', 'Bob']
+    global.setTimeout(shouldProcess.pause, 100)
+    global.setTimeout(shouldProcess.resume, 150)
+
+    const startTime = new Date().getTime()
+    for (const record of records) {
+      await shouldProcess.proceed()
+      await processRecord(record)
+    }
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(200)
+    expect(records).toEqual(['Joe', 'Frank', 'Bob'])
+  })
+  test('should pause and resume after timeout', async () => {
+    const shouldProcess = pausable(50)
+    const processed: string[] = []
+    const processRecord = async (record: string) => {
+      processed.push(record)
+      await setTimeout(50)
+    }
+    const records = ['Joe', 'Frank', 'Bob']
+    global.setTimeout(shouldProcess.pause, 100)
+
+    const startTime = new Date().getTime()
+    for (const record of records) {
+      await shouldProcess.proceed()
+      await processRecord(record)
+    }
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(200)
+    expect(records).toEqual(['Joe', 'Frank', 'Bob'])
+  })
+})
+
+describe('defer', () => {
+  test('should defer', async () => {
+    const delay = (milliseconds: number) => {
+      const deferred = defer()
+      global.setTimeout(deferred.done, milliseconds, '🦄')
+      return deferred.promise
+    }
+    const startTime = new Date().getTime()
+    await delay(100)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(100)
   })
 })

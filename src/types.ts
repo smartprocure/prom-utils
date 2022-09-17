@@ -13,3 +13,8 @@ export type Queue = (
   fn: (arr: any[]) => any,
   options?: QueueOptions
 ) => QueueResult
+
+export interface Deferred {
+  done: () => void
+  promise: Promise<void>
+}

@@ -50,7 +50,6 @@ export type Queue = (
   fn: (arr: any[]) => any,
   options?: QueueOptions
 ) => QueueResult
-
 ```
 
 **Example**
@@ -64,4 +63,35 @@ for (const record of records) {
   await queue.enqueue(record)
 }
 await queue.flush()
+```
+
+## pausable
+
+Pause a loop by awaiting `proceed`. When `pause` is called `proceed` will
+return a promise that is resolved when `resume` is called. Otherwise,
+`proceed` will return immediately. If `timeout` is passed, `resume` will
+be called after `timeout` if it is not manually called first.
+
+```typescript
+const shouldProcess = pausable()
+
+onSomeCondition(shouldProcess.pause)
+onSomeOtherCondition(shouldProcess.resume)
+
+for (const record of records) {
+  await shouldProcess.proceed()
+  await processRecord(record)
+}
+```
+
+## defer
+
+Defer resolving a promise until `done` is called.
+
+```typescript
+const delay = (milliseconds: number) => {
+  const deferred = defer()
+  setTimeout(deferred.done, milliseconds, '🦄')
+  return deferred.promise
+}
 ```
