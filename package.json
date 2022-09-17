@@ -21,7 +21,10 @@
     "queue",
     "concurrency",
     "control",
-    "loop"
+    "loop",
+    "defer",
+    "deferred",
+    "pause"
   ],
   "license": "ISC",
   "prettier": {
