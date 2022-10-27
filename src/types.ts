@@ -6,6 +6,7 @@ export type QueueResult = {
 
 export interface QueueOptions {
   batchSize?: number
+  batchBytes?: number
   timeout?: number
 }
 

@@ -1,3 +1,4 @@
+import sizeof from 'object-sizeof'
 import _debug from 'debug'
 import { Deferred, Queue, QueueResult } from './types'
 
@@ -69,6 +70,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
   let queue: any[] = []
   let timeoutId: ReturnType<typeof setTimeout>
   let prom: Promise<any>
+  let size = 0
 
   /**
    * Call fn on queue and clear the queue.
@@ -88,6 +90,8 @@ export const batchQueue: Queue = (fn, options = {}) => {
       obj.lastResult = result
       // Reset the queue
       queue = []
+      // Reset the size
+      size = 0
       debug('queue reset')
     }
   }
@@ -100,10 +104,10 @@ export const batchQueue: Queue = (fn, options = {}) => {
     debug('enqueue called')
     // Wait for a timeout initiated flush to complete
     await prom
-    // Start a timer if the queue is empty and timeout is set
-    if (queue.length === 0 && timeout) {
+    // Start a timer if timeout is set and the queue is empty
+    if (timeout && queue.length === 0) {
       timeoutId = setTimeout(() => {
-        debug('timeout cb')
+        debug('setTimeout cb')
         prom = flush()
       }, timeout)
       debug('setTimeout called')
@@ -112,9 +116,18 @@ export const batchQueue: Queue = (fn, options = {}) => {
     queue.push(item)
     // Batch size reached
     if (queue.length === batchSize) {
-      debug('batchSize reached')
+      debug('batchSize reached %d', queue.length)
       // Wait for queue to be flushed
       await flush()
+    } else if (options.batchBytes) {
+      // Determine size of object and add to sum
+      size += sizeof(item)
+      // Batch bytes reached
+      if (size >= options.batchBytes) {
+        debug('batchBytes reached %d', size)
+        // Wait for queue to be flushed
+        await flush()
+      }
     }
   }
 

@@ -1,3 +1,8 @@
+# 0.4.0
+
+- Added `batchBytes` option to `batchQueue` which triggers a queue flush if the total size of
+the queue is greater than or equal to `batchBytes`.
+
 # 0.3.0
 
 - `defer`
