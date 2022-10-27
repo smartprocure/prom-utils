@@ -115,39 +115,39 @@ describe('batchQueue', () => {
     await queue.flush()
     expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
   })
-  test('should flush queue if batchBytes is reached', async () => {
+  test('should flush queue if batchBytes is reached before batchSize', async () => {
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
     }
-    const batchSize = 5
+    const batchSize = 3
     const batchBytes = 8
 
     const queue = batchQueue(fn, { batchSize, batchBytes })
-    const records = ['Joe', 'Frank', 'Bob']
+    const records = ['Joe', 'Frank', 'Bob', 'Tim']
 
     for (const record of records) {
       await queue.enqueue(record)
     }
     await queue.flush()
-    expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
+    expect(calls).toEqual([['Joe', 'Frank'], ['Bob', 'Tim']])
   })
   test('should flush queue if batchSize is reached before batchBytes', async () => {
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
     }
-    const batchSize = 2
+    const batchSize = 3
     const batchBytes = 100
 
     const queue = batchQueue(fn, { batchSize, batchBytes })
-    const records = ['Joe', 'Frank', 'Bob']
+    const records = ['Joe', 'Frank', 'Bob', 'Tim']
 
     for (const record of records) {
       await queue.enqueue(record)
     }
     await queue.flush()
-    expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
+    expect(calls).toEqual([['Joe', 'Frank', 'Bob'], ['Tim']])
   })
 })
 
