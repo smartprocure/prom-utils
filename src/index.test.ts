@@ -24,9 +24,9 @@ describe('rateLimit', () => {
   })
   test('should finish awaiting remaining promises', async () => {
     const limiter = rateLimit(3)
-    const done = []
+    const done: string[] = []
     const createProm = () =>
-      setTimeout(1000).then((p) => {
+      setTimeout(1000, 'done').then((p) => {
         done.push(p)
       })
 
