@@ -1,3 +1,7 @@
+# 0.5.0
+
+- Changed debug code to be more logical.
+
 # 0.4.0
 
 - Added `batchBytes` option to `batchQueue` which triggers a queue flush if the total size of

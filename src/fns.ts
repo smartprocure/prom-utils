@@ -84,9 +84,9 @@ export const batchQueue: Queue = (fn, options = {}) => {
     await prom
     // Queue is not empty
     if (queue.length) {
-      debug('fn called')
       // Call fn with queue
       const result = await fn(queue)
+      debug('fn called')
       obj.lastResult = result
       // Reset the queue
       queue = []
