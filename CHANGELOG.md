@@ -1,3 +1,7 @@
+# 0.6.0
+
+- Added `pacemaker`.
+
 # 0.5.0
 
 - Changed debug code to be more logical.

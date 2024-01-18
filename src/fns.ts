@@ -185,3 +185,22 @@ export const pausable = (timeout?: number) => {
   const proceed = () => deferred?.promise
   return { pause, resume, proceed }
 }
+
+/**
+ * Call heartbeatFn every interval until promise resolves or rejects.
+ * Returns the value of the resolved promise.
+ */
+export const pacemaker = async <T>(
+  heartbeatFn: () => void,
+  promise: Promise<T>,
+  interval = 1000
+) => {
+  const intervalId = setInterval(heartbeatFn, interval)
+
+  try {
+    return await promise
+  } finally {
+    clearInterval(intervalId)
+    debug('interval cleared')
+  }
+}

@@ -12,7 +12,7 @@ how many requests are made to a server, for example.
 const limiter = rateLimit(3)
 
 for (const url of urls) {
-  await limiter.add(fetch(url))
+    await limiter.add(fetch(url))
 }
 // Wait for unresolved promises to resolve
 await limiter.finish()
@@ -36,20 +36,20 @@ obtained by referencing `lastResult` on the returned object.
 
 ```typescript
 export type QueueResult = {
-  flush(): Promise<void>
-  enqueue(item: any): Promise<void>
-  lastResult?: any
+    flush(): Promise<void>
+    enqueue(item: any): Promise<void>
+    lastResult?: any
 }
 
 export interface QueueOptions {
-  batchSize?: number
-  batchBytes?: number
-  timeout?: number
+    batchSize?: number
+    batchBytes?: number
+    timeout?: number
 }
 
 export type Queue = (
-  fn: (arr: any[]) => any,
-  options?: QueueOptions
+    fn: (arr: any[]) => any,
+    options?: QueueOptions
 ) => QueueResult
 ```
 
@@ -80,8 +80,8 @@ onSomeCondition(shouldProcess.pause)
 onSomeOtherCondition(shouldProcess.resume)
 
 for (const record of records) {
-  await shouldProcess.proceed()
-  await processRecord(record)
+    await shouldProcess.proceed()
+    await processRecord(record)
 }
 ```
 
@@ -91,8 +91,21 @@ Defer resolving a promise until `done` is called.
 
 ```typescript
 const delay = (milliseconds: number) => {
-  const deferred = defer()
-  setTimeout(deferred.done, milliseconds, '🦄')
-  return deferred.promise
+    const deferred = defer()
+    setTimeout(deferred.done, milliseconds, '🦄')
+    return deferred.promise
 }
+```
+
+## pacemaker
+
+Call heartbeatFn every interval until promise resolves or rejects.
+Returns the value of the resolved promise.
+
+```typescript
+const heartbeatFn = () => {
+    // Emit heartbeat
+}
+
+const result = await pacemaker(heartbeatFn, someProm)
 ```

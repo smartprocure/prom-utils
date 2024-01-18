@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals'
 import { setTimeout } from 'node:timers/promises'
-import { defer, batchQueue, rateLimit, pausable } from './fns'
+import { defer, batchQueue, rateLimit, pausable, pacemaker } from './fns'
 
 describe('rateLimit', () => {
   test('should add up to limit - 1 promises without delay', async () => {
@@ -130,7 +130,10 @@ describe('batchQueue', () => {
       await queue.enqueue(record)
     }
     await queue.flush()
-    expect(calls).toEqual([['Joe', 'Frank'], ['Bob', 'Tim']])
+    expect(calls).toEqual([
+      ['Joe', 'Frank'],
+      ['Bob', 'Tim'],
+    ])
   })
   test('should flush queue if batchSize is reached before batchBytes', async () => {
     const calls: any[] = []
@@ -207,5 +210,31 @@ describe('defer', () => {
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(100)
+  })
+})
+
+describe('pacemaker', () => {
+  test('should call heartbeatFn 2 times', async () => {
+    let count = 0
+    const heartbeatFn = () => {
+      console.log('heartbeat')
+      count++
+    }
+    const result = await pacemaker(heartbeatFn, setTimeout(250, 'done'), 100)
+    expect(count).toBe(2)
+    expect(result).toBe('done')
+  })
+
+  test('should throw', async () => {
+    const heartbeatFn = () => {
+      console.log('heartbeat')
+    }
+
+    const promFn = async () => {
+      await setTimeout(150)
+      throw 'fail'
+    }
+
+    await expect(pacemaker(heartbeatFn, promFn(), 100)).rejects.toMatch('fail')
   })
 })
