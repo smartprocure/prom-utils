@@ -1,6 +1,6 @@
 {
   "name": "prom-utils",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Promise utilities for looping: rate limiting, queueing/batching, etc.",
   "author": "GovSpend",
   "main": "dist/index.js",
@@ -10,6 +10,7 @@
     "prepare": "npm run lint && npm test && npm run build",
     "clean": "rm -rf dist",
     "build": "npm run clean && tsc --declaration",
+    "build:watch": "tsc --watch",
     "test": "jest",
     "lint": "eslint src/**"
   },
