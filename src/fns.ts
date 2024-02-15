@@ -27,12 +27,14 @@ export const rateLimit = (limit: number) => {
     // Add to set
     set.add(prom)
     debug('set size: %d', set.size)
-    // Remove from set after resolving
+    // Create a new promise
     prom.then(
       () => {
         debug('delete')
+        // Remove from the set after resolving
         set.delete(prom)
       },
+      // Handle the exception so we don't throw an UnhandledPromiseRejection exception
       () => debug('exception thrown')
     )
     // Limit was reached
