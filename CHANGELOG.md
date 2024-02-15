@@ -1,3 +1,7 @@
+# 0.6.1
+
+- `rateLimit` - Catch promise exceptions which will be re-thrown in `.add` or `.finish`.
+
 # 0.6.0
 
 - Added `pacemaker`.

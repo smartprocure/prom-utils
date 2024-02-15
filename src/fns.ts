@@ -17,6 +17,7 @@ const debug = _debug('prom-utils')
  * ```
  */
 export const rateLimit = (limit: number) => {
+  debug('limit: %d', limit)
   const set = new Set<Promise<any>>()
   /**
    * Add a promise. Returns immediately if limit has not been
@@ -25,10 +26,18 @@ export const rateLimit = (limit: number) => {
   const add = async (prom: Promise<any>) => {
     // Add to set
     set.add(prom)
+    debug('set size: %d', set.size)
     // Remove from set after resolving
-    prom.then(() => set.delete(prom))
+    prom.then(
+      () => {
+        debug('delete')
+        set.delete(prom)
+      },
+      () => debug('exception thrown')
+    )
     // Limit was reached
     if (set.size === limit) {
+      debug('limit reached: %d', limit)
       // Wait for one item to finish
       await Promise.race(set)
     }
@@ -36,7 +45,10 @@ export const rateLimit = (limit: number) => {
   /**
    * Wait for all promises to resolve
    */
-  const finish = () => Promise.all(set)
+  const finish = () => {
+    debug('finish')
+    return Promise.all(set)
+  }
   return { add, finish }
 }
 
