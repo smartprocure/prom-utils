@@ -48,26 +48,23 @@ describe('rateLimit', () => {
     // Shorter timeout to make sure that this rejects before the other promises resolve
     await limiter.add(
       setTimeout(5).then(() => {
-        throw 'rejectedPromise'
+        throw new Error('rejectedPromise')
       })
     )
     await limiter.add(setTimeout(10))
   })
-  test('rejections should bubble up .finish', async () => {
-    try {
+  test('rejections should bubble up .finish', () => {
+    return expect(async () => {
       const limiter = rateLimit(3)
       await limiter.add(setTimeout(10))
       await limiter.add(
         setTimeout(10).then(() => {
-          throw 'rejectedPromise'
+          throw new Error('rejectedPromise')
         })
       )
       // Call finish before reaching the limit of 3
       await limiter.finish()
-    } catch (e) {
-      console.log(e)
-      expect(e).toBe('rejectedPromise')
-    }
+    }).rejects.toThrow('rejectedPromise')
   })
 })
 
