@@ -41,6 +41,31 @@ describe('rateLimit', () => {
     expect(elapsed).toBeLessThan(3000)
     expect(done.length).toEqual(5)
   })
+  // This test is here to ensure that the rejected promise doesn't
+  // throw an UnhandledPromiseRejection exception.
+  test('rejections should bubble up .add', async () => {
+    const limiter = rateLimit(3)
+    // Shorter timeout to make sure that this rejects before the other promises resolve
+    await limiter.add(
+      setTimeout(5).then(() => {
+        throw new Error('rejectedPromise')
+      })
+    )
+    await limiter.add(setTimeout(10))
+  })
+  test('rejections should bubble up .finish', () => {
+    return expect(async () => {
+      const limiter = rateLimit(3)
+      await limiter.add(setTimeout(10))
+      await limiter.add(
+        setTimeout(10).then(() => {
+          throw new Error('rejectedPromise')
+        })
+      )
+      // Call finish before reaching the limit of 3
+      await limiter.finish()
+    }).rejects.toThrow('rejectedPromise')
+  })
 })
 
 describe('batchQueue', () => {
