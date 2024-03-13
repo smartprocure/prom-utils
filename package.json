@@ -1,6 +1,6 @@
 {
   "name": "prom-utils",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Promise utilities for looping: rate limiting, queueing/batching, etc.",
   "author": "GovSpend",
   "main": "dist/index.js",
@@ -48,6 +48,6 @@
   },
   "dependencies": {
     "debug": "^4.3.4",
-    "object-sizeof": "^1.6.3"
+    "obj-walker": "^2.1.0"
   }
 }

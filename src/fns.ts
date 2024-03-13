@@ -1,4 +1,4 @@
-import sizeof from 'object-sizeof'
+import { size } from 'obj-walker'
 import _debug from 'debug'
 import { Deferred, Queue, QueueResult } from './types'
 
@@ -84,7 +84,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
   let queue: any[] = []
   let timeoutId: ReturnType<typeof setTimeout>
   let prom: Promise<any>
-  let size = 0
+  let bytes = 0
 
   /**
    * Call fn on queue and clear the queue.
@@ -105,7 +105,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
       // Reset the queue
       queue = []
       // Reset the size
-      size = 0
+      bytes = 0
       debug('queue reset')
     }
   }
@@ -135,10 +135,11 @@ export const batchQueue: Queue = (fn, options = {}) => {
       await flush()
     } else if (options.batchBytes) {
       // Determine size of object and add to sum
-      size += sizeof(item)
+      bytes += size(item)
+      debug('bytes %d', bytes)
       // Batch bytes reached
-      if (size >= options.batchBytes) {
-        debug('batchBytes reached %d', size)
+      if (bytes >= options.batchBytes) {
+        debug('batchBytes reached %d', bytes)
         // Wait for queue to be flushed
         await flush()
       }
