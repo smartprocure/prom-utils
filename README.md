@@ -109,3 +109,16 @@ const heartbeatFn = () => {
 
 const result = await pacemaker(heartbeatFn, someProm)
 ```
+
+## waitUntil
+
+Wait until the predicate returns truthy or the timeout expires.
+Returns a promise.
+
+```typescript
+let isTruthy = false
+global.setTimeout(() => {
+    isTruthy = true
+}, 250)
+await waitUntil(() => isTruthy)
+```

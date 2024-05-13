@@ -1,9 +1,17 @@
 import { describe, expect, test } from '@jest/globals'
 import { setTimeout } from 'node:timers/promises'
-import { defer, batchQueue, rateLimit, pausable, pacemaker } from './fns'
+import {
+  defer,
+  batchQueue,
+  rateLimit,
+  pausable,
+  pacemaker,
+  waitUntil,
+} from './fns'
 
 describe('rateLimit', () => {
   test('should add up to limit - 1 promises without delay', async () => {
+    expect.assertions(1)
     const limiter = rateLimit(3)
     const startTime = new Date().getTime()
     await limiter.add(setTimeout(1000))
@@ -13,6 +21,7 @@ describe('rateLimit', () => {
     expect(elapsed).toBeLessThan(100)
   })
   test('should wait for one promise to resolve when limit is reached', async () => {
+    expect.assertions(1)
     const limiter = rateLimit(3)
     const startTime = new Date().getTime()
     await limiter.add(setTimeout(1000))
@@ -23,6 +32,7 @@ describe('rateLimit', () => {
     expect(elapsed).toBeGreaterThan(900)
   })
   test('should finish awaiting remaining promises', async () => {
+    expect.assertions(3)
     const limiter = rateLimit(3)
     const done: string[] = []
     const createProm = () =>
@@ -54,6 +64,7 @@ describe('rateLimit', () => {
     await limiter.add(setTimeout(10))
   })
   test('rejections should bubble up .finish', () => {
+    expect.assertions(1)
     return expect(async () => {
       const limiter = rateLimit(3)
       await limiter.add(setTimeout(10))
@@ -70,6 +81,7 @@ describe('rateLimit', () => {
 
 describe('batchQueue', () => {
   test('should batch items up to batchSize', async () => {
+    expect.assertions(1)
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
@@ -86,6 +98,7 @@ describe('batchQueue', () => {
     expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
   })
   test('should flush queue if timeout is reached before batchSize', async () => {
+    expect.assertions(1)
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
@@ -104,6 +117,7 @@ describe('batchQueue', () => {
     expect(calls).toEqual([['Joe'], ['Frank'], ['Bob']])
   })
   test('should reset timer if batchSize is reached before timeout', async () => {
+    expect.assertions(1)
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
@@ -122,6 +136,7 @@ describe('batchQueue', () => {
     expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
   })
   test('fn should only be called once if timeout flush was triggered before queue.flush()', async () => {
+    expect.assertions(1)
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
@@ -141,6 +156,7 @@ describe('batchQueue', () => {
     expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
   })
   test('should flush queue if batchBytes is reached before batchSize', async () => {
+    expect.assertions(1)
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
@@ -161,6 +177,7 @@ describe('batchQueue', () => {
     ])
   })
   test('should flush queue if batchSize is reached before batchBytes', async () => {
+    expect.assertions(1)
     const calls: any[] = []
     const fn = async (records: any[]) => {
       calls.push(records)
@@ -181,6 +198,7 @@ describe('batchQueue', () => {
 
 describe('pausable', () => {
   test('should pause and resume', async () => {
+    expect.assertions(2)
     const shouldProcess = pausable()
     const processed: string[] = []
     const processRecord = async (record: string) => {
@@ -202,6 +220,7 @@ describe('pausable', () => {
     expect(records).toEqual(['Joe', 'Frank', 'Bob'])
   })
   test('should pause and resume after timeout', async () => {
+    expect.assertions(2)
     const shouldProcess = pausable(50)
     const processed: string[] = []
     const processRecord = async (record: string) => {
@@ -225,6 +244,7 @@ describe('pausable', () => {
 
 describe('defer', () => {
   test('should defer', async () => {
+    expect.assertions(1)
     const delay = (milliseconds: number) => {
       const deferred = defer()
       global.setTimeout(deferred.done, milliseconds, '🦄')
@@ -240,6 +260,7 @@ describe('defer', () => {
 
 describe('pacemaker', () => {
   test('should call heartbeatFn 2 times', async () => {
+    expect.assertions(2)
     let count = 0
     const heartbeatFn = () => {
       console.log('heartbeat')
@@ -251,6 +272,7 @@ describe('pacemaker', () => {
   })
 
   test('should throw', async () => {
+    expect.assertions(1)
     const heartbeatFn = () => {
       console.log('heartbeat')
     }
@@ -261,5 +283,34 @@ describe('pacemaker', () => {
     }
 
     await expect(pacemaker(heartbeatFn, promFn(), 100)).rejects.toMatch('fail')
+  })
+})
+
+describe('waitUntil', () => {
+  test('should wait until pred returns truthy', async () => {
+    expect.assertions(1)
+    let isTruthy = false
+    global.setTimeout(() => {
+      isTruthy = true
+    }, 250)
+    await expect(waitUntil(() => isTruthy)).resolves.toBeUndefined()
+  })
+  test('should wait until async pred returns truthy', async () => {
+    expect.assertions(1)
+    let isTruthy = false
+    global.setTimeout(() => {
+      isTruthy = true
+    }, 250)
+    await expect(waitUntil(async () => isTruthy)).resolves.toBeUndefined()
+  })
+  test('should throw if the timeout expires', async () => {
+    expect.assertions(1)
+    let isTruthy = false
+    global.setTimeout(() => {
+      isTruthy = true
+    }, 250)
+    await expect(
+      waitUntil(async () => isTruthy, { timeout: 100 })
+    ).rejects.toMatch('Did not complete in 100 ms')
   })
 })

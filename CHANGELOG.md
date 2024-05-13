@@ -1,3 +1,7 @@
+# 0.8.0
+
+-   Added `waitUntil` - Wait until the predicate returns truthy or the timeout expires.
+
 # 0.7.0
 
 -   Changed dependency for determining size in bytes of a value for `batchQueue`.

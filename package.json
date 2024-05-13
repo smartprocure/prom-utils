@@ -1,6 +1,6 @@
 {
   "name": "prom-utils",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Promise utilities for looping: rate limiting, queueing/batching, etc.",
   "author": "GovSpend",
   "main": "dist/index.js",
@@ -27,7 +27,8 @@
     "defer",
     "deferred",
     "pause",
-    "pausable"
+    "pausable",
+    "wait"
   ],
   "license": "ISC",
   "prettier": {

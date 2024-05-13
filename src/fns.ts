@@ -1,6 +1,6 @@
 import { size } from 'obj-walker'
 import _debug from 'debug'
-import { Deferred, Queue, QueueResult } from './types'
+import { Deferred, Queue, QueueResult, WaitOptions } from './types'
 
 const debug = _debug('prom-utils')
 
@@ -219,3 +219,44 @@ export const pacemaker = async <T>(
     debug('interval cleared')
   }
 }
+
+/**
+ * Wait until the predicate returns truthy or the timeout expires.
+ * Returns a promise.
+ *
+ * Will not hang like other implementations found on NPM.
+ * Inspired by https://www.npmjs.com/package/async-wait-until
+ */
+export const waitUntil = (
+  pred: () => Promise<boolean> | boolean,
+  options: WaitOptions = {}
+) =>
+  new Promise<void>((resolve, reject) => {
+    const checkFrequencyMs = options.checkFrequency || 50
+    const timeoutMs = options.timeout || 5000
+    let checkTimer: NodeJS.Timeout
+
+    const timeoutTimer = setTimeout(() => {
+      debug('timeout')
+      clearTimeout(checkTimer)
+      reject(`Did not complete in ${timeoutMs} ms`)
+    }, timeoutMs)
+
+    const check = async () => {
+      debug('check called')
+      if (await pred()) {
+        debug('pred returned truthy')
+        clearTimeout(checkTimer)
+        clearTimeout(timeoutTimer)
+        resolve()
+      } else {
+        checkPred()
+      }
+    }
+
+    const checkPred = () => {
+      debug('checkPred called')
+      checkTimer = setTimeout(check, checkFrequencyMs)
+    }
+    check()
+  })
