@@ -259,13 +259,17 @@ export const waitUntil = (
      */
     const check = async () => {
       debug('check called')
-      if (await pred()) {
-        debug('pred returned truthy')
-        clearTimeout(checkTimer)
-        clearTimeout(timeoutTimer)
-        resolve()
-      } else {
-        checkLater()
+      try {
+        if (await pred()) {
+          debug('pred returned truthy')
+          clearTimeout(checkTimer)
+          clearTimeout(timeoutTimer)
+          resolve()
+        } else {
+          checkLater()
+        }
+      } catch (e) {
+        reject(e)
       }
     }
 
