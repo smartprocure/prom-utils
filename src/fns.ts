@@ -239,7 +239,7 @@ export const waitUntil = (
   new Promise<void>((resolve, reject) => {
     const checkFrequencyMs = options.checkFrequency || 50
     const timeoutMs = options.timeout || 5000
-    let checkTimer: NodeJS.Timeout
+    let checkTimer: ReturnType<typeof setTimeout>
 
     const timeoutTimer = setTimeout(() => {
       debug('timeout')
@@ -247,6 +247,9 @@ export const waitUntil = (
       reject(`Did not complete in ${timeoutMs} ms`)
     }, timeoutMs)
 
+    /**
+     * Check the predicate for truthiness.
+     */
     const check = async () => {
       debug('check called')
       if (await pred()) {
@@ -255,12 +258,15 @@ export const waitUntil = (
         clearTimeout(timeoutTimer)
         resolve()
       } else {
-        checkPred()
+        checkLater()
       }
     }
 
-    const checkPred = () => {
-      debug('checkPred called')
+    /**
+     * Check the predicate after `checkFrequencyMs`.
+     */
+    const checkLater = () => {
+      debug('checkLater called')
       checkTimer = setTimeout(check, checkFrequencyMs)
     }
     check()
