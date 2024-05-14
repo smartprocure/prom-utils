@@ -305,6 +305,16 @@ describe('waitUntil', () => {
     }, 250)
     await expect(waitUntil(async () => isTruthy)).resolves.toBeUndefined()
   })
+  test('should handle infinite timeout', async () => {
+    expect.assertions(1)
+    let isTruthy = false
+    global.setTimeout(() => {
+      isTruthy = true
+    }, 250)
+    await expect(
+      waitUntil(async () => isTruthy, { timeout: Infinity })
+    ).resolves.toBeUndefined()
+  })
   test('should throw if the timeout expires', async () => {
     expect.assertions(1)
     let isTruthy = false

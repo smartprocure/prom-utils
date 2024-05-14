@@ -241,12 +241,16 @@ export const waitUntil = (
     const checkFrequency = options.checkFrequency || 50
     const timeout = options.timeout || 5000
     let checkTimer: ReturnType<typeof setTimeout>
+    let timeoutTimer: ReturnType<typeof setTimeout>
 
-    const timeoutTimer = setTimeout(() => {
-      debug('timeout')
-      clearTimeout(checkTimer)
-      reject(`Did not complete in ${timeout} ms`)
-    }, timeout)
+    // Start timeout timer if `timeout` is not set to Infinity
+    if (timeout !== Infinity) {
+      timeoutTimer = setTimeout(() => {
+        debug('timeout')
+        clearTimeout(checkTimer)
+        reject(`Did not complete in ${timeout} ms`)
+      }, timeout)
+    }
 
     /**
      * Check the predicate for truthiness.
