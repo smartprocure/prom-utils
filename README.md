@@ -23,34 +23,37 @@ await limiter.finish()
 Batch calls via a local queue. This can be used to batch values before
 writing to a database, for example.
 
-Automatically executes `fn` when `batchSize` is reached or `timeout` is
-reached, if set. The timer will be started when the first item is
-enqueued and reset when flush is called explicitly or implicitly.
+Calls `fn` when either `batchSize`, `batchBytes`, or `timeout` is reached.
+`batchSize` defaults to 500 and therefore will always be in affect if
+no options are provided. You can pass `Infinity` to disregard `batchSize`.
+If `timeout` is passed, the timer will be started when the first item is
+enqueued and reset when `flush` is called explicitly or implicitly.
 
 Call `queue.flush()` to flush explicitly.
 
-Batch size defaults to 500. The last result of calling `fn` can be
-obtained by referencing `lastResult` on the returned object.
+The last result of calling `fn` can be obtained by referencing `lastResult`
+on the returned object.
 
 **Types**
 
 ```typescript
-export type QueueResult = {
+export type QueueResult<A, B> = {
+    /** Call `fn` with the items in the queue. */
     flush(): Promise<void>
-    enqueue(item: any): Promise<void>
-    lastResult?: any
+    /** Add an item to the queue. When a queue condition is met `flush` will be called. */
+    enqueue(item: A): Promise<void>
+    /** The last result returned from calling `fn`. */
+    lastResult?: Awaited<B>
 }
 
 export interface QueueOptions {
+    /** Wait for the batch to reach this number of elements before flushing the queue. */
     batchSize?: number
+    /** Wait for the batch to reach this size in bytes before flushing the queue. */
     batchBytes?: number
+    /** Wait this long in ms before flushing the queue. */
     timeout?: number
 }
-
-export type Queue = (
-    fn: (arr: any[]) => any,
-    options?: QueueOptions
-) => QueueResult
 ```
 
 **Example**
@@ -59,7 +62,7 @@ export type Queue = (
 const writeToDatabase = async (records) => {...}
 const batchSize = 250
 
-const queue = batchQueue(writeToDatabase, {batchSize})
+const queue = batchQueue(writeToDatabase, { batchSize })
 for (const record of records) {
   await queue.enqueue(record)
 }
@@ -100,6 +103,8 @@ const delay = (milliseconds: number) => {
 ## pacemaker
 
 Call heartbeatFn every interval until promise resolves or rejects.
+`interval` defaults to 1000.
+
 Returns the value of the resolved promise.
 
 ```typescript
@@ -108,4 +113,30 @@ const heartbeatFn = () => {
 }
 
 const result = await pacemaker(heartbeatFn, someProm)
+```
+
+## waitUntil
+
+Wait until the predicate returns truthy or the timeout expires.
+Returns a promise.
+
+**Types**
+
+```typescript
+export interface WaitOptions {
+    /** Wait this long in ms before rejecting. Defaults to 5000 ms. */
+    timeout?: number
+    /** Check the predicate with this frequency. Defaults to 50 ms. */
+    checkFrequency?: number
+}
+```
+
+**Example**
+
+```typescript
+let isTruthy = false
+setTimeout(() => {
+    isTruthy = true
+}, 250)
+await waitUntil(() => isTruthy)
 ```

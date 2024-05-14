@@ -1,6 +1,7 @@
 import { size } from 'obj-walker'
 import _debug from 'debug'
-import { Deferred, Queue, QueueResult } from './types'
+import { Deferred, QueueOptions, QueueResult, WaitOptions } from './types'
+import makeError from 'make-error'
 
 const debug = _debug('prom-utils')
 
@@ -27,7 +28,8 @@ export const rateLimit = (limit: number) => {
     // Add to set
     set.add(prom)
     debug('set size: %d', set.size)
-    // Create a new promise
+    // Create a child promise
+    // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
       () => {
         debug('delete')
@@ -59,14 +61,16 @@ export const rateLimit = (limit: number) => {
  * Batch calls via a local queue. This can be used to batch values before
  * writing to a database, for example.
  *
- * Automatically executes `fn` when `batchSize` is reached or `timeout` is
- * reached, if set. The timer will be started when the first item is
- * enqueued and reset when flush is called explicitly or implicitly.
+ * Calls `fn` when either `batchSize`, `batchBytes`, or `timeout` is reached.
+ * `batchSize` defaults to 500 and therefore will always be in affect if
+ * no options are provided. You can pass `Infinity` to disregard `batchSize`.
+ * If `timeout` is passed, the timer will be started when the first item is
+ * enqueued and reset when `flush` is called explicitly or implicitly.
  *
  * Call `queue.flush()` to flush explicitly.
  *
- * Batch size defaults to 500. The last result of calling `fn` can be
- * obtained by referencing `lastResult` on the returned object.
+ * The last result of calling `fn` can be obtained by referencing `lastResult`
+ * on the returned object.
  *
  * ```typescript
  * const writeToDatabase = async (records) => {...}
@@ -78,7 +82,10 @@ export const rateLimit = (limit: number) => {
  * await queue.flush()
  * ```
  */
-export const batchQueue: Queue = (fn, options = {}) => {
+export function batchQueue<A, B>(
+  fn: (arr: A[]) => B,
+  options: QueueOptions = {}
+) {
   const { batchSize = 500, timeout } = options
   debug('options %o', options)
   let queue: any[] = []
@@ -114,7 +121,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
    * Enqueue an item. If the batch size is reached wait
    * for queue to be flushed.
    */
-  const enqueue = async (item: any) => {
+  const enqueue = async (item: A) => {
     debug('enqueue called')
     // Wait for a timeout initiated flush to complete
     await prom
@@ -146,7 +153,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
     }
   }
 
-  const obj: QueueResult = { flush, enqueue }
+  const obj: QueueResult<A, B> = { flush, enqueue }
   return obj
 }
 
@@ -203,6 +210,8 @@ export const pausable = (timeout?: number) => {
 
 /**
  * Call heartbeatFn every interval until promise resolves or rejects.
+ * `interval` defaults to 1000.
+ *
  * Returns the value of the resolved promise.
  */
 export const pacemaker = async <T>(
@@ -219,3 +228,60 @@ export const pacemaker = async <T>(
     debug('interval cleared')
   }
 }
+
+export const TimeoutError = makeError("TimeoutError")
+
+/**
+ * Wait until the predicate returns truthy or the timeout expires.
+ * Returns a promise.
+ *
+ * Will not hang like other implementations found on NPM.
+ * Inspired by https://www.npmjs.com/package/async-wait-until
+ */
+export const waitUntil = (
+  pred: () => Promise<boolean> | boolean,
+  options: WaitOptions = {}
+) =>
+  new Promise<void>((resolve, reject) => {
+    const checkFrequency = options.checkFrequency || 50
+    const timeout = options.timeout || 5000
+    let checkTimer: ReturnType<typeof setTimeout>
+    let timeoutTimer: ReturnType<typeof setTimeout>
+
+    // Start timeout timer if `timeout` is not set to Infinity
+    if (timeout !== Infinity) {
+      timeoutTimer = setTimeout(() => {
+        debug('timeout')
+        clearTimeout(checkTimer)
+        reject(new TimeoutError(`Did not complete in ${timeout} ms`))
+      }, timeout)
+    }
+
+    /**
+     * Check the predicate for truthiness.
+     */
+    const check = async () => {
+      debug('check called')
+      try {
+        if (await pred()) {
+          debug('pred returned truthy')
+          clearTimeout(checkTimer)
+          clearTimeout(timeoutTimer)
+          resolve()
+        } else {
+          checkLater()
+        }
+      } catch (e) {
+        reject(e)
+      }
+    }
+
+    /**
+     * Check the predicate after `checkFrequency`.
+     */
+    const checkLater = () => {
+      debug('checkLater called')
+      checkTimer = setTimeout(check, checkFrequency)
+    }
+    check()
+  })
