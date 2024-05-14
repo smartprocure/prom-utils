@@ -209,6 +209,8 @@ export const pausable = (timeout?: number) => {
 
 /**
  * Call heartbeatFn every interval until promise resolves or rejects.
+ * `interval` defaults to 1000.
+ *
  * Returns the value of the resolved promise.
  */
 export const pacemaker = async <T>(

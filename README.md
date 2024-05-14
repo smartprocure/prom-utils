@@ -103,6 +103,8 @@ const delay = (milliseconds: number) => {
 ## pacemaker
 
 Call heartbeatFn every interval until promise resolves or rejects.
+`interval` defaults to 1000.
+
 Returns the value of the resolved promise.
 
 ```typescript
