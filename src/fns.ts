@@ -27,7 +27,8 @@ export const rateLimit = (limit: number) => {
     // Add to set
     set.add(prom)
     debug('set size: %d', set.size)
-    // Create a new promise
+    // Create a child promise
+    // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
       () => {
         debug('delete')
