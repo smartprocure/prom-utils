@@ -37,22 +37,23 @@ on the returned object.
 **Types**
 
 ```typescript
-export type QueueResult = {
+export type QueueResult<A, B> = {
+    /** Call `fn` with the items in the queue. */
     flush(): Promise<void>
-    enqueue(item: any): Promise<void>
-    lastResult?: any
+    /** Add an item to the queue. When a queue condition is met `flush` will be called. */
+    enqueue(item: A): Promise<void>
+    /** The last result returned from calling `fn`. */
+    lastResult?: B
 }
 
 export interface QueueOptions {
+    /** Wait for the batch to reach this number of elements before flushing the queue. */
     batchSize?: number
+    /** Wait for the batch to reach this size in bytes before flushing the queue. */
     batchBytes?: number
+    /** Wait this long in ms before flushing the queue. */
     timeout?: number
 }
-
-export type Queue = (
-    fn: (arr: any[]) => any,
-    options?: QueueOptions
-) => QueueResult
 ```
 
 **Example**
@@ -61,7 +62,7 @@ export type Queue = (
 const writeToDatabase = async (records) => {...}
 const batchSize = 250
 
-const queue = batchQueue(writeToDatabase, {batchSize})
+const queue = batchQueue(writeToDatabase, { batchSize })
 for (const record of records) {
   await queue.enqueue(record)
 }

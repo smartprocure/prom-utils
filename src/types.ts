@@ -1,7 +1,10 @@
-export type QueueResult = {
+export type QueueResult<A,B> = {
+  /** Call `fn` with the items in the queue. */
   flush(): Promise<void>
-  enqueue(item: any): Promise<void>
-  lastResult?: any
+  /** Add an item to the queue. When a queue condition is met `flush` will be called. */
+  enqueue(item: A): Promise<void>
+  /** The last result returned from calling `fn`. */
+  lastResult?: Awaited<B>
 }
 
 export interface QueueOptions {
@@ -12,11 +15,6 @@ export interface QueueOptions {
   /** Wait this long in ms before flushing the queue. */
   timeout?: number
 }
-
-export type Queue = (
-  fn: (arr: any[]) => any,
-  options?: QueueOptions
-) => QueueResult
 
 export interface Deferred {
   done: () => void

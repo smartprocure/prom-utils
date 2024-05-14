@@ -1,6 +1,7 @@
 # 0.8.0
 
 -   Added `waitUntil` - Wait until the predicate returns truthy or the timeout expires.
+-   Changed function signature to use generics for `batchQueue`.
 
 # 0.7.0
 

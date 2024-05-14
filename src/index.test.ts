@@ -81,10 +81,11 @@ describe('rateLimit', () => {
 
 describe('batchQueue', () => {
   test('should batch items up to batchSize', async () => {
-    expect.assertions(1)
+    expect.assertions(2)
     const calls: any[] = []
-    const fn = async (records: any[]) => {
+    const fn = async (records: string[]) => {
       calls.push(records)
+      return records.length
     }
     const batchSize = 2
 
@@ -96,11 +97,12 @@ describe('batchQueue', () => {
     }
     await queue.flush()
     expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
+    expect(queue.lastResult).toBe(1)
   })
   test('should flush queue if timeout is reached before batchSize', async () => {
     expect.assertions(1)
     const calls: any[] = []
-    const fn = async (records: any[]) => {
+    const fn = async (records: string[]) => {
       calls.push(records)
     }
     const batchSize = 2
@@ -119,7 +121,7 @@ describe('batchQueue', () => {
   test('should reset timer if batchSize is reached before timeout', async () => {
     expect.assertions(1)
     const calls: any[] = []
-    const fn = async (records: any[]) => {
+    const fn = async (records: string[]) => {
       calls.push(records)
     }
     const batchSize = 2
@@ -138,7 +140,7 @@ describe('batchQueue', () => {
   test('fn should only be called once if timeout flush was triggered before queue.flush()', async () => {
     expect.assertions(1)
     const calls: any[] = []
-    const fn = async (records: any[]) => {
+    const fn = async (records: string[]) => {
       calls.push(records)
       await setTimeout(100)
     }
@@ -158,7 +160,7 @@ describe('batchQueue', () => {
   test('should flush queue if batchBytes is reached before batchSize', async () => {
     expect.assertions(1)
     const calls: any[] = []
-    const fn = async (records: any[]) => {
+    const fn = async (records: string[]) => {
       calls.push(records)
     }
     const batchSize = 3
@@ -179,7 +181,7 @@ describe('batchQueue', () => {
   test('should flush queue if batchSize is reached before batchBytes', async () => {
     expect.assertions(1)
     const calls: any[] = []
-    const fn = async (records: any[]) => {
+    const fn = async (records: string[]) => {
       calls.push(records)
     }
     const batchSize = 3

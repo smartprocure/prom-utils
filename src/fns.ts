@@ -1,6 +1,6 @@
 import { size } from 'obj-walker'
 import _debug from 'debug'
-import { Deferred, Queue, QueueResult, WaitOptions } from './types'
+import { Deferred, QueueOptions, QueueResult, WaitOptions } from './types'
 
 const debug = _debug('prom-utils')
 
@@ -80,7 +80,10 @@ export const rateLimit = (limit: number) => {
  * await queue.flush()
  * ```
  */
-export const batchQueue: Queue = (fn, options = {}) => {
+export function batchQueue<A, B>(
+  fn: (arr: A[]) => B,
+  options: QueueOptions = {}
+) {
   const { batchSize = 500, timeout } = options
   debug('options %o', options)
   let queue: any[] = []
@@ -116,7 +119,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
    * Enqueue an item. If the batch size is reached wait
    * for queue to be flushed.
    */
-  const enqueue = async (item: any) => {
+  const enqueue = async (item: A) => {
     debug('enqueue called')
     // Wait for a timeout initiated flush to complete
     await prom
@@ -148,7 +151,7 @@ export const batchQueue: Queue = (fn, options = {}) => {
     }
   }
 
-  const obj: QueueResult = { flush, enqueue }
+  const obj: QueueResult<A,B> = { flush, enqueue }
   return obj
 }
 
