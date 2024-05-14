@@ -43,7 +43,7 @@ export type QueueResult<A, B> = {
     /** Add an item to the queue. When a queue condition is met `flush` will be called. */
     enqueue(item: A): Promise<void>
     /** The last result returned from calling `fn`. */
-    lastResult?: B
+    lastResult?: Awaited<B>
 }
 
 export interface QueueOptions {
