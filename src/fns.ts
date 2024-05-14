@@ -59,14 +59,16 @@ export const rateLimit = (limit: number) => {
  * Batch calls via a local queue. This can be used to batch values before
  * writing to a database, for example.
  *
- * Automatically executes `fn` when `batchSize` is reached or `timeout` is
- * reached, if set. The timer will be started when the first item is
- * enqueued and reset when flush is called explicitly or implicitly.
+ * Calls `fn` when either `batchSize`, `batchBytes`, or `timeout` is reached.
+ * `batchSize` defaults to 500 and therefore will always be in affect if
+ * no options are provided. You can pass `Infinity` to disregard `batchSize`.
+ * If `timeout` is passed, the timer will be started when the first item is
+ * enqueued and reset when `flush` is called explicitly or implicitly.
  *
  * Call `queue.flush()` to flush explicitly.
  *
- * Batch size defaults to 500. The last result of calling `fn` can be
- * obtained by referencing `lastResult` on the returned object.
+ * The last result of calling `fn` can be obtained by referencing `lastResult`
+ * on the returned object.
  *
  * ```typescript
  * const writeToDatabase = async (records) => {...}
