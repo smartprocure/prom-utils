@@ -7,6 +7,7 @@ import {
   pausable,
   pacemaker,
   waitUntil,
+  TimeoutError,
 } from './fns'
 
 describe('rateLimit', () => {
@@ -315,7 +316,7 @@ describe('waitUntil', () => {
       waitUntil(async () => isTruthy, { timeout: Infinity })
     ).resolves.toBeUndefined()
   })
-  test('should throw if the timeout expires', async () => {
+  test('should throw TimeoutError if the timeout expires', async () => {
     expect.assertions(1)
     let isTruthy = false
     global.setTimeout(() => {
@@ -323,7 +324,7 @@ describe('waitUntil', () => {
     }, 250)
     await expect(
       waitUntil(async () => isTruthy, { timeout: 100 })
-    ).rejects.toMatch('Did not complete in 100 ms')
+    ).rejects.toThrow(new TimeoutError('Did not complete in 100 ms'))
   })
   test('rejects when pred throws', async () => {
     expect.assertions(1)

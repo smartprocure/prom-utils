@@ -1,6 +1,7 @@
 import { size } from 'obj-walker'
 import _debug from 'debug'
 import { Deferred, QueueOptions, QueueResult, WaitOptions } from './types'
+import makeError from 'make-error'
 
 const debug = _debug('prom-utils')
 
@@ -228,6 +229,8 @@ export const pacemaker = async <T>(
   }
 }
 
+export const TimeoutError = makeError("TimeoutError")
+
 /**
  * Wait until the predicate returns truthy or the timeout expires.
  * Returns a promise.
@@ -250,7 +253,7 @@ export const waitUntil = (
       timeoutTimer = setTimeout(() => {
         debug('timeout')
         clearTimeout(checkTimer)
-        reject(`Did not complete in ${timeout} ms`)
+        reject(new TimeoutError(`Did not complete in ${timeout} ms`))
       }, timeout)
     }
 
