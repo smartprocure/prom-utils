@@ -152,7 +152,7 @@ export function batchQueue<A, B>(
     }
   }
 
-  const obj: QueueResult<A,B> = { flush, enqueue }
+  const obj: QueueResult<A, B> = { flush, enqueue }
   return obj
 }
 
@@ -238,15 +238,15 @@ export const waitUntil = (
   options: WaitOptions = {}
 ) =>
   new Promise<void>((resolve, reject) => {
-    const checkFrequencyMs = options.checkFrequency || 50
-    const timeoutMs = options.timeout || 5000
+    const checkFrequency = options.checkFrequency || 50
+    const timeout = options.timeout || 5000
     let checkTimer: ReturnType<typeof setTimeout>
 
     const timeoutTimer = setTimeout(() => {
       debug('timeout')
       clearTimeout(checkTimer)
-      reject(`Did not complete in ${timeoutMs} ms`)
-    }, timeoutMs)
+      reject(`Did not complete in ${timeout} ms`)
+    }, timeout)
 
     /**
      * Check the predicate for truthiness.
@@ -264,11 +264,11 @@ export const waitUntil = (
     }
 
     /**
-     * Check the predicate after `checkFrequencyMs`.
+     * Check the predicate after `checkFrequency`.
      */
     const checkLater = () => {
       debug('checkLater called')
-      checkTimer = setTimeout(check, checkFrequencyMs)
+      checkTimer = setTimeout(check, checkFrequency)
     }
     check()
   })
