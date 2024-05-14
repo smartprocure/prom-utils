@@ -17,7 +17,9 @@ export interface QueueOptions {
 }
 
 export interface Deferred {
+  /** Resolve the promise. */
   done: () => void
+  /** Resolves when `done` is called. */
   promise: Promise<void>
 }
 
