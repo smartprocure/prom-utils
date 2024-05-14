@@ -325,7 +325,7 @@ describe('waitUntil', () => {
       waitUntil(async () => isTruthy, { timeout: 100 })
     ).rejects.toMatch('Did not complete in 100 ms')
   })
-  test('exception in pred can be caught', async () => {
+  test('rejects when pred throws', async () => {
     expect.assertions(1)
     await expect(
       waitUntil(
