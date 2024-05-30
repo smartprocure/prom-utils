@@ -34,11 +34,13 @@ describe('rateLimit', () => {
   })
   test('should finish awaiting remaining promises', async () => {
     expect.assertions(3)
-    const limiter = rateLimit(3)
+    // Pass type variable
+    const limiter = rateLimit<string>(3)
     const done: string[] = []
     const createProm = () =>
       setTimeout(1000, 'done').then((p) => {
         done.push(p)
+        return p
       })
 
     const startTime = new Date().getTime()

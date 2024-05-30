@@ -1,3 +1,7 @@
+# 0.9.0
+
+-   Better types.
+
 # 0.8.0
 
 -   Added `waitUntil` - Wait until the predicate returns truthy or the timeout expires.
