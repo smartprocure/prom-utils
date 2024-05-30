@@ -1,6 +1,7 @@
 # 0.9.0
 
--   Better types.
+-   Better types - removed all use of `any`.
+-   Changed the return type of the `finish` method for `rateLimit` to `Promise<void>`.
 
 # 0.8.0
 
