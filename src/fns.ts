@@ -17,14 +17,14 @@ const debug = _debug('prom-utils')
  * await limiter.finish()
  * ```
  */
-export const rateLimit = (limit: number) => {
+export const rateLimit = <T = unknown>(limit: number) => {
   debug('limit: %d', limit)
-  const set = new Set<Promise<any>>()
+  const set = new Set<Promise<T>>()
   /**
    * Add a promise. Returns immediately if limit has not been
    * met. Waits for one promise to resolve if limit is met.
    */
-  const add = async (prom: Promise<any>) => {
+  const add = async (prom: Promise<T>) => {
     // Add to set
     set.add(prom)
     debug('set size: %d', set.size)
@@ -49,9 +49,9 @@ export const rateLimit = (limit: number) => {
   /**
    * Wait for all promises to resolve
    */
-  const finish = () => {
+  const finish = async () => {
     debug('finish')
-    return Promise.all(set)
+    await Promise.all(set)
   }
   return { add, finish }
 }
@@ -88,9 +88,9 @@ export function batchQueue<A, B>(
 ) {
   const { batchSize = 500, timeout } = options
   debug('options %o', options)
-  let queue: any[] = []
+  let queue: A[] = []
   let timeoutId: ReturnType<typeof setTimeout>
-  let prom: Promise<any>
+  let prom: Promise<unknown>
   let bytes = 0
 
   /**
@@ -229,7 +229,7 @@ export const pacemaker = async <T>(
   }
 }
 
-export const TimeoutError = makeError("TimeoutError")
+export const TimeoutError = makeError('TimeoutError')
 
 /**
  * Wait until the predicate returns truthy or the timeout expires.

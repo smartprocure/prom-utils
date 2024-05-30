@@ -1,3 +1,8 @@
+# 0.9.0
+
+-   Better types - removed all use of `any`.
+-   `rateLimit` - Changed the return type of the `finish` method to `Promise<void>`.
+
 # 0.8.0
 
 -   Added `waitUntil` - Wait until the predicate returns truthy or the timeout expires.
