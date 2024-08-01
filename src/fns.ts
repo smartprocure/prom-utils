@@ -82,10 +82,10 @@ export const throughputLimiter = (
   maxItemsPerSec: number,
   options: SlidingWindowOptions = {}
 ) => {
-  debug('maxItemsPerSec %d', maxItemsPerSec)
   const slidingWindow: { startTime: number; numItems: number }[] = []
   const windowLength = options.windowLength || 3
   const sleepTime = options.sleepTime || 100
+  debug('maxItemsPerSec %d', maxItemsPerSec)
   debug('windowLength %d', windowLength)
   debug('sleepTime %d', sleepTime)
 
