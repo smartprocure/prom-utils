@@ -425,7 +425,7 @@ describe('throughputLimiter', () => {
     const endTime = new Date().getTime()
     expect(endTime - startTime).toBeLessThan(5)
   })
-  test('throughput should be governed', async () => {
+  test('throughput should be throttled', async () => {
     const limiter = throughputLimiter(500)
     const startTime = new Date().getTime()
     await limiter.throttle(250)
