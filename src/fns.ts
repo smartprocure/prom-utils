@@ -1,6 +1,8 @@
-import { sumBy } from 'lodash'
-import { size } from 'obj-walker'
 import _debug from 'debug'
+import { sumBy } from 'lodash'
+import makeError from 'make-error'
+import { size } from 'obj-walker'
+
 import {
   Deferred,
   QueueOptions,
@@ -8,7 +10,6 @@ import {
   SlidingWindowOptions,
   WaitOptions,
 } from './types'
-import makeError from 'make-error'
 
 const debug = _debug('prom-utils')
 
@@ -81,20 +82,28 @@ export const throughputLimiter = (
   maxItemsPerSec: number,
   options: SlidingWindowOptions = {}
 ) => {
+  debug('maxItemsPerSec %d', maxItemsPerSec)
   const slidingWindow: { startTime: number; numItems: number }[] = []
-  const windowLength = options.windowLength ?? 3
-  const sleepTime = options.sleepTime ?? 100
+  const windowLength = options.windowLength || 3
+  const sleepTime = options.sleepTime || 100
+  debug('windowLength %d', windowLength)
+  debug('sleepTime %d', sleepTime)
 
   /**
    * Get the current rate (items/sec). Returns 0 if start has been called less
    * than two times.
    */
   const getCurrentRate = () => {
+    debug('getCurrentRate called')
     if (slidingWindow.length > 0) {
       const { startTime } = slidingWindow[0]
       const numItems = sumBy(slidingWindow, 'numItems')
-      return (new Date().getTime() - startTime) / numItems
+      debug('total items %d', numItems)
+      const rate = numItems / ((new Date().getTime() - startTime) / 1000)
+      debug('current rate %d', rate)
+      return rate
     }
+    debug('current rate 0')
     return 0
   }
 
@@ -105,16 +114,20 @@ export const throughputLimiter = (
    * and the total number of items over the current window.
    */
   const start = async (numItems: number) => {
+    debug('start called - %d', numItems)
     // Skip check if maxItemsPerSec is Infinity
     if (maxItemsPerSec < Infinity) {
       while (getCurrentRate() > maxItemsPerSec) {
+        debug('sleeping for %d', sleepTime)
         await sleep(sleepTime)
       }
     }
     slidingWindow.push({ startTime: new Date().getTime(), numItems })
     if (slidingWindow.length > windowLength) {
+      debug('truncating slidingWindow')
       slidingWindow.shift()
     }
+    debug('slidingWindow %o', slidingWindow)
   }
 
   return {
@@ -180,7 +193,8 @@ export function batchQueue<A, B>(
     await prom
     // Queue is not empty
     if (queue.length) {
-      // Sleep if throughput is too high
+      // Wait for the throughput to drop below thresholds for items/sec
+      // and bytes/sec limiters.
       await Promise.all([
         itemsLimiter.start(queue.length),
         bytesLimiter.start(bytes),
@@ -215,21 +229,22 @@ export function batchQueue<A, B>(
     }
     // Add item to queue
     queue.push(item)
+    // Calculate total bytes
+    if (options.batchBytes || maxBytesPerSec < Infinity) {
+      bytes += size(item)
+      debug('bytes %d', bytes)
+    }
     // Batch size reached
     if (queue.length === batchSize) {
       debug('batchSize reached %d', queue.length)
       // Wait for queue to be flushed
       await flush()
-    } else if (options.batchBytes) {
-      // Determine size of object and add to sum
-      bytes += size(item)
-      debug('bytes %d', bytes)
-      // Batch bytes reached
-      if (bytes >= options.batchBytes) {
-        debug('batchBytes reached %d', bytes)
-        // Wait for queue to be flushed
-        await flush()
-      }
+    }
+    // Batch bytes reached
+    else if (options.batchBytes && bytes >= options.batchBytes) {
+      debug('batchBytes reached %d', bytes)
+      // Wait for queue to be flushed
+      await flush()
     }
   }
 

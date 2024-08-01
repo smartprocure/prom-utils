@@ -1,6 +1,5 @@
 export interface QueueStats {
   itemsPerSec: number
-  /** batchBytes must be set for this to be in effect. */
   bytesPerSec: number
 }
 
@@ -22,9 +21,9 @@ export interface QueueOptions {
   batchBytes?: number
   /** Wait this long in ms before flushing the queue. */
   timeout?: number
-  /** Maximum throughput allowed (item/sec) */
+  /** Maximum throughput allowed (item/sec). */
   maxItemsPerSec?: number
-  /** Maximum throughput allowed (bytes/sec). The `batchBytes` option must also be set. */
+  /** Maximum throughput allowed (bytes/sec). */
   maxBytesPerSec?: number
 }
 
