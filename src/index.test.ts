@@ -247,8 +247,8 @@ describe('batchQueue', () => {
     // Total time would be around 200 ms without throughput governing
     expect(elapsed).toBeGreaterThan(500)
   })
-  test.only('flush should govern throughput - maxItemsPerSec & maxBtyesPerSec', async () => {
-    expect.assertions(1)
+  test('flush should govern throughput - maxItemsPerSec & maxBtyesPerSec', async () => {
+    expect.assertions(3)
     const calls: any[] = []
     const fn = async (records: string[]) => {
       calls.push(records)
@@ -270,6 +270,10 @@ describe('batchQueue', () => {
     const elapsed = endTime - startTime
     // Total time would be around 200 ms without throughput governing
     expect(elapsed).toBeGreaterThan(500)
+    // Stats
+    const stats = queue.getStats()
+    expect(stats.bytesPerSec).toBeLessThan(100)
+    expect(stats.itemsPerSec).toBeLessThan(10)
   })
 })
 

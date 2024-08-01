@@ -248,6 +248,10 @@ export function batchQueue<A, B>(
     }
   }
 
+  /**
+   * Returns the current items/sec and bytes/sec values.
+   * These will be zero if the corresponding option is not enabled.
+   */
   const getStats = () => ({
     itemsPerSec: itemsLimiter.getCurrentRate(),
     bytesPerSec: bytesLimiter.getCurrentRate(),
