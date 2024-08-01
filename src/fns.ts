@@ -1,6 +1,13 @@
+import { sumBy } from 'lodash'
 import { size } from 'obj-walker'
 import _debug from 'debug'
-import { Deferred, QueueOptions, QueueResult, WaitOptions } from './types'
+import {
+  Deferred,
+  QueueOptions,
+  QueueResult,
+  SlidingWindowOptions,
+  WaitOptions,
+} from './types'
 import makeError from 'make-error'
 
 const debug = _debug('prom-utils')
@@ -57,12 +64,72 @@ export const rateLimit = <T = unknown>(limit: number) => {
 }
 
 /**
+ * Limit the throughput by sleeping until the rate (items/sec)
+ * is less than `maxItemsPerSec`.
+ *
+ * Example:
+ * ```typescript
+ * const limiter = throughputLimiter(1000)
+ *
+ * for(const batch of batches) {
+ *   await limiter.start(batch.length)
+ *   console.log('Items/sec %d', limiter.getCurrentRate())
+ * }
+ * ```
+ */
+export const throughputLimiter = (
+  maxItemsPerSec: number,
+  options: SlidingWindowOptions = {}
+) => {
+  const slidingWindow: { startTime: number; numItems: number }[] = []
+  const windowLength = options.windowLength ?? 3
+  const sleepTime = options.sleepTime ?? 100
+
+  /**
+   * Get the current rate (items/sec). Returns 0 if start has been called less
+   * than two times.
+   */
+  const getCurrentRate = () => {
+    if (slidingWindow.length > 0) {
+      const { startTime } = slidingWindow[0]
+      const numItems = sumBy(slidingWindow, 'numItems')
+      return (new Date().getTime() - startTime) / numItems
+    }
+    return 0
+  }
+
+  /**
+   * Call before processing. After the first call, a subsequent call assumes
+   * that the `numItems` from the previous call were processed. A call to
+   * start may sleep for a given period of time depending on `maxItemsPerSec`
+   * and the total number of items over the current window.
+   */
+  const start = async (numItems: number) => {
+    // Skip check if maxItemsPerSec is Infinity
+    if (maxItemsPerSec < Infinity) {
+      while (getCurrentRate() > maxItemsPerSec) {
+        await sleep(sleepTime)
+      }
+    }
+    slidingWindow.push({ startTime: new Date().getTime(), numItems })
+    if (slidingWindow.length > windowLength) {
+      slidingWindow.shift()
+    }
+  }
+
+  return {
+    start,
+    getCurrentRate,
+  }
+}
+
+/**
  *
  * Batch calls via a local queue. This can be used to batch values before
  * writing to a database, for example.
  *
  * Calls `fn` when either `batchSize`, `batchBytes`, or `timeout` is reached.
- * `batchSize` defaults to 500 and therefore will always be in affect if
+ * `batchSize` defaults to 500 and therefore will always be in effect if
  * no options are provided. You can pass `Infinity` to disregard `batchSize`.
  * If `timeout` is passed, the timer will be started when the first item is
  * enqueued and reset when `flush` is called explicitly or implicitly.
@@ -86,12 +153,20 @@ export function batchQueue<A, B>(
   fn: (arr: A[]) => B,
   options: QueueOptions = {}
 ) {
-  const { batchSize = 500, timeout } = options
+  const {
+    batchSize = 500,
+    timeout,
+    maxItemsPerSec = Infinity,
+    maxBytesPerSec = Infinity,
+  } = options
   debug('options %o', options)
   let queue: A[] = []
   let timeoutId: ReturnType<typeof setTimeout>
   let prom: Promise<unknown>
   let bytes = 0
+  // Limiters
+  const itemsLimiter = throughputLimiter(maxItemsPerSec)
+  const bytesLimiter = throughputLimiter(maxBytesPerSec)
 
   /**
    * Call fn on queue and clear the queue.
@@ -105,6 +180,11 @@ export function batchQueue<A, B>(
     await prom
     // Queue is not empty
     if (queue.length) {
+      // Sleep if throughput is too high
+      await Promise.all([
+        itemsLimiter.start(queue.length),
+        bytesLimiter.start(bytes),
+      ])
       // Call fn with queue
       const result = await fn(queue)
       debug('fn called')
@@ -153,7 +233,12 @@ export function batchQueue<A, B>(
     }
   }
 
-  const obj: QueueResult<A, B> = { flush, enqueue }
+  const getStats = () => ({
+    itemsPerSec: itemsLimiter.getCurrentRate(),
+    bytesPerSec: bytesLimiter.getCurrentRate(),
+  })
+
+  const obj: QueueResult<A, B> = { flush, enqueue, getStats }
   return obj
 }
 
@@ -285,3 +370,9 @@ export const waitUntil = (
     }
     check()
   })
+
+/**
+ * Sleep for `time` ms before resolving the Promise.
+ */
+export const sleep = (time = 0) =>
+  new Promise((resolve) => setTimeout(resolve, time))
