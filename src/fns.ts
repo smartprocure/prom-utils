@@ -7,7 +7,7 @@ import {
   Deferred,
   QueueOptions,
   QueueResult,
-  SlidingWindowOptions,
+  ThroughputLimiterOptions,
   WaitOptions,
 } from './types'
 
@@ -65,7 +65,7 @@ export const rateLimit = <T = unknown>(limit: number) => {
 }
 
 /**
- * Limit the throughput by sleeping until the rate (items/sec)
+ * Limit throughput by sleeping until the rate (items/sec)
  * is less than `maxItemsPerSec`.
  *
  * Example:
@@ -80,7 +80,7 @@ export const rateLimit = <T = unknown>(limit: number) => {
  */
 export const throughputLimiter = (
   maxItemsPerSec: number,
-  options: SlidingWindowOptions = {}
+  options: ThroughputLimiterOptions = {}
 ) => {
   const slidingWindow: { startTime: number; numItems: number }[] = []
   const windowLength = options.windowLength || 3
@@ -108,12 +108,12 @@ export const throughputLimiter = (
   }
 
   /**
-   * Call before processing. After the first call, a subsequent call assumes
-   * that the `numItems` from the previous call were processed. A call to
-   * start may sleep for a given period of time depending on `maxItemsPerSec`
-   * and the total number of items over the current window.
+   * Call before processing a batch of items. After the first call, a subsequent
+   * call assumes that the `numItems` from the previous call were processed. A
+   * call to throttle may sleep for a given period of time depending on
+   * `maxItemsPerSec` and the total number of items over the current window.
    */
-  const start = async (numItems: number) => {
+  const throttle = async (numItems: number) => {
     debug('start called - %d', numItems)
     // Skip check if maxItemsPerSec is Infinity
     if (maxItemsPerSec < Infinity) {
@@ -131,7 +131,7 @@ export const throughputLimiter = (
   }
 
   return {
-    start,
+    throttle,
     getCurrentRate,
   }
 }
@@ -196,8 +196,8 @@ export function batchQueue<A, B>(
       // Wait for the throughput to drop below thresholds for items/sec
       // and bytes/sec limiters.
       await Promise.all([
-        itemsLimiter.start(queue.length),
-        bytesLimiter.start(bytes),
+        itemsLimiter.throttle(queue.length),
+        bytesLimiter.throttle(bytes),
       ])
       // Call fn with queue
       const result = await fn(queue)

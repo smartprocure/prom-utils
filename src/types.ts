@@ -41,7 +41,7 @@ export interface WaitOptions {
   checkFrequency?: number
 }
 
-export interface SlidingWindowOptions {
+export interface ThroughputLimiterOptions {
   /** The maximum number of start invocations to hold in memory. A larger number will result in     */
   windowLength?: number
   /** Number of ms to sleep before checking the rate again. Defaults to 100. */
