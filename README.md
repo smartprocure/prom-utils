@@ -60,6 +60,8 @@ export type QueueResult<A, B> = {
     enqueue(item: A): Promise<void>
     /** The last result returned from calling `fn`. */
     lastResult?: Awaited<B>
+    /** Get the current throughput rates. */
+    getStats(): QueueStats
 }
 
 export interface QueueOptions {
