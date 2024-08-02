@@ -91,7 +91,7 @@ export const throughputLimiter = (
   maxUnitsPerSec: number,
   options: ThroughputLimiterOptions = {}
 ) => {
-  const slidingWindow: { startTime: number; numItems: number }[] = []
+  const slidingWindow: { timestamp: number; numUnits: number }[] = []
   const windowLength = options.windowLength || 3
   const sleepTime = options.sleepTime || 100
   debugTL('init - maxUnitsPerSec %d', maxUnitsPerSec)
@@ -107,10 +107,10 @@ export const throughputLimiter = (
   const getCurrentRate = () => {
     debugTL('getCurrentRate called')
     if (slidingWindow.length > 0) {
-      const { startTime } = slidingWindow[0]
-      const numItems = sumBy(slidingWindow, 'numItems')
-      debugTL('total items %d', numItems)
-      const rate = numItems / ((new Date().getTime() - startTime) / 1000)
+      const { timestamp } = slidingWindow[0]
+      const numUnits = sumBy(slidingWindow, 'numUnits')
+      debugTL('total units %d', numUnits)
+      const rate = numUnits / ((new Date().getTime() - timestamp) / 1000)
       debugTL('current rate %d', rate)
       return rate
     }
@@ -137,7 +137,7 @@ export const throughputLimiter = (
       debugTL('sleeping for %d', sleepTime)
       await sleep(sleepTime)
     }
-    slidingWindow.push({ startTime: new Date().getTime(), numItems: numUnits })
+    slidingWindow.push({ timestamp: new Date().getTime(), numUnits })
     if (slidingWindow.length > windowLength) {
       debugTL('truncating slidingWindow')
       slidingWindow.shift()
