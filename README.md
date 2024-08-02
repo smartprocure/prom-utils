@@ -43,7 +43,7 @@ const writeToDatabase = async (records) => {...}
 
 const queue = batchQueue(writeToDatabase)
 for (const record of records) {
-// Will call `fn` when a threshold is met
+  // Will call `fn` when a threshold is met
   await queue.enqueue(record)
 }
 // Call `fn` with remaining queued items
