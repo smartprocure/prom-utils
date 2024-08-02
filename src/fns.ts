@@ -100,8 +100,9 @@ export const throughputLimiter = (
 
   /**
    * Get the current rate (units/sec). The rate is determined by averaging the
-   * values in the sliding window starting from the first entry in the window
-   * to now. Returns 0 if `throttle` has not been called.
+   * values in the sliding window where the elapsed time is determined by
+   * comparing the first entry in the window to the current time. Returns 0
+   * if `throttle` has not been called.
    */
   const getCurrentRate = () => {
     tl('getCurrentRate called')
