@@ -446,6 +446,7 @@ describe('throughputLimiter', () => {
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(1000)
+    expect(limiter.getCurrentRate()).toBeLessThan(1000)
   })
   test('options should work as expected', async () => {
     const limiter = throughputLimiter(500, { windowLength: 2, sleepTime: 200 })
