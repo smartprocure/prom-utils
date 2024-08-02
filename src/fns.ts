@@ -24,8 +24,10 @@ const wu = _debug('prom-utils:waitUntil')
  * ```typescript
  * const limiter = rateLimit(3)
  * for (const url of urls) {
+ *   // Will wait for one promise to finish if limit is reached
  *   await limiter.add(fetch(url))
  * }
+ * // Wait for unresolved promises to resolve
  * await limiter.finish()
  * ```
  */
@@ -77,6 +79,7 @@ export const rateLimit = <T = unknown>(limit: number) => {
  * const limiter = throughputLimiter(1000)
  *
  * for(const batch of batches) {
+ *   // Will wait until the rate is <= `maxItemsPerSec`
  *   await limiter.throttle(batch.length)
  *   console.log('Items/sec %d', limiter.getCurrentRate())
  * }
@@ -114,7 +117,7 @@ export const throughputLimiter = (
   /**
    * Call before processing a batch of items. After the first call, a subsequent
    * call assumes that the `numItems` from the previous call were processed. A
-   * call to throttle may sleep for a given period of time depending on
+   * call to `throttle` may sleep for a given period of time depending on
    * `maxItemsPerSec` and the total number of items over the current window.
    */
   const throttle = async (numItems: number) => {
@@ -153,7 +156,7 @@ export const throughputLimiter = (
  * enqueued and reset when `flush` is called explicitly or implicitly.
  *
  * Use `maxItemsPerSec` and/or `maxBytesPerSec` to limit throughput.
- * Call `queue.getStats` to get the items/sec and bytes/sec rates.
+ * Call `queue.getStats()` to get the items/sec and bytes/sec rates.
  *
  * Call `queue.flush()` to flush explicitly.
  *
@@ -165,8 +168,10 @@ export const throughputLimiter = (
  *
  * const queue = batchQueue(writeToDatabase)
  * for (const record of records) {
+ *   // Will call `fn` when a threshold is met
  *   await queue.enqueue(record)
  * }
+ * // Call `fn` with remaining queued items
  * await queue.flush()
  * ```
  */

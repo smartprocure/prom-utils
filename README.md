@@ -12,6 +12,7 @@ how many requests are made to a server, for example.
 const limiter = rateLimit(3)
 
 for (const url of urls) {
+    // Will wait for one promise to finish if limit is reached
     await limiter.add(fetch(url))
 }
 // Wait for unresolved promises to resolve
@@ -24,15 +25,32 @@ Batch calls via a local queue. This can be used to batch values before
 writing to a database, for example.
 
 Calls `fn` when either `batchSize`, `batchBytes`, or `timeout` is reached.
-`batchSize` defaults to 500 and therefore will always be in affect if
+`batchSize` defaults to 500 and therefore will always be in effect if
 no options are provided. You can pass `Infinity` to disregard `batchSize`.
 If `timeout` is passed, the timer will be started when the first item is
 enqueued and reset when `flush` is called explicitly or implicitly.
+
+Use `maxItemsPerSec` and/or `maxBytesPerSec` to limit throughput.
+Call `queue.getStats()` to get the items/sec and bytes/sec rates.
 
 Call `queue.flush()` to flush explicitly.
 
 The last result of calling `fn` can be obtained by referencing `lastResult`
 on the returned object.
+
+```typescript
+const writeToDatabase = async (records) => {...}
+
+const queue = batchQueue(writeToDatabase)
+for (const record of records) {
+// Will call `fn` when a threshold is met
+  await queue.enqueue(record)
+}
+// Call `fn` with remaining queued items
+await queue.flush()
+```
+
+/
 
 **Types**
 
@@ -53,6 +71,10 @@ export interface QueueOptions {
     batchBytes?: number
     /** Wait this long in ms before flushing the queue. */
     timeout?: number
+    /** Maximum throughput allowed (item/sec). */
+    maxItemsPerSec?: number
+    /** Maximum throughput allowed (bytes/sec). */
+    maxBytesPerSec?: number
 }
 ```
 
@@ -67,6 +89,35 @@ for (const record of records) {
   await queue.enqueue(record)
 }
 await queue.flush()
+```
+
+## throughputLimiter
+
+Limit throughput by sleeping until the rate (items/sec)
+is less than or equal to `maxItemsPerSec`.
+
+**Example**
+
+```typescript
+// Limit to at most 1000 items/sec
+const limiter = throughputLimiter(1000)
+
+for (const batch of batches) {
+    // Will wait until the rate is <= `maxItemsPerSec`
+    await limiter.throttle(batch.length)
+    console.log('Items/sec %d', limiter.getCurrentRate())
+}
+```
+
+**Types**
+
+```typescript
+export interface ThroughputLimiterOptions {
+    /** The maximum number of start invocations to hold in memory. A larger number will result in     */
+    windowLength?: number
+    /** Number of ms to sleep before checking the rate again. Defaults to 100. */
+    sleepTime?: number
+}
 ```
 
 ## pausable
