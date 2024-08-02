@@ -42,7 +42,7 @@ export interface WaitOptions {
 }
 
 export interface ThroughputLimiterOptions {
-  /** The maximum number of start invocations to hold in memory. */
+  /** The maximum number of throttle invocations to hold in memory. */
   windowLength?: number
   /** Number of ms to sleep before checking the rate again. Defaults to 100. */
   sleepTime?: number
