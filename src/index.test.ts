@@ -1,13 +1,15 @@
-import { describe, expect, test } from '@jest/globals'
 import { setTimeout } from 'node:timers/promises'
+import { describe, expect, test } from 'vitest'
+
 import {
-  defer,
   batchQueue,
-  rateLimit,
-  pausable,
+  defer,
   pacemaker,
-  waitUntil,
+  pausable,
+  rateLimit,
+  throughputLimiter,
   TimeoutError,
+  waitUntil,
 } from './fns'
 
 describe('rateLimit', () => {
@@ -199,6 +201,80 @@ describe('batchQueue', () => {
     await queue.flush()
     expect(calls).toEqual([['Joe', 'Frank', 'Bob'], ['Tim']])
   })
+  test('flush should govern throughput - maxItemsPerSec', async () => {
+    expect.assertions(1)
+    const calls: any[] = []
+    const fn = async (records: string[]) => {
+      calls.push(records)
+      await setTimeout(100)
+    }
+    const batchSize = 3
+    const maxItemsPerSec = 5
+
+    const queue = batchQueue(fn, { batchSize, maxItemsPerSec })
+    const records = ['Joe', 'Frank', 'Bob', 'Tim']
+    const startTime = new Date().getTime()
+
+    for (const record of records) {
+      await queue.enqueue(record)
+    }
+    await queue.flush()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    // Total time would be around 200 ms without throughput governing
+    expect(elapsed).toBeGreaterThan(500)
+  })
+  test('flush should govern throughput - maxBytesPerSec', async () => {
+    expect.assertions(1)
+    const calls: any[] = []
+    const fn = async (records: string[]) => {
+      calls.push(records)
+      await setTimeout(100)
+    }
+    const batchSize = 3
+    const maxBytesPerSec = 50
+
+    const queue = batchQueue(fn, { batchSize, maxBytesPerSec })
+    const records = ['Joe', 'Frank', 'Bob', 'Tim']
+    const startTime = new Date().getTime()
+
+    for (const record of records) {
+      await queue.enqueue(record)
+    }
+    await queue.flush()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    // Total time would be around 200 ms without throughput governing
+    expect(elapsed).toBeGreaterThan(500)
+  })
+  test('flush should govern throughput - maxItemsPerSec & maxBtyesPerSec', async () => {
+    expect.assertions(3)
+    const calls: any[] = []
+    const fn = async (records: string[]) => {
+      calls.push(records)
+      await setTimeout(100)
+    }
+    const batchSize = 3
+    const maxItemsPerSec = 5
+    const maxBytesPerSec = 50
+
+    const queue = batchQueue(fn, { batchSize, maxItemsPerSec, maxBytesPerSec })
+    const records = ['Joe', 'Frank', 'Bob', 'Tim']
+    const startTime = new Date().getTime()
+
+    for (const record of records) {
+      await queue.enqueue(record)
+    }
+    await queue.flush()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    // Total time would be around 200 ms without throughput governing
+    expect(elapsed).toBeGreaterThan(500)
+    // Stats
+    const stats = queue.getStats()
+    expect(stats.bytesPerSec).toBeLessThan(100)
+    expect(stats.itemsPerSec).toBeLessThan(10)
+  })
 })
 
 describe('pausable', () => {
@@ -252,7 +328,7 @@ describe('defer', () => {
     expect.assertions(1)
     const delay = (milliseconds: number) => {
       const deferred = defer()
-      global.setTimeout(deferred.done, milliseconds, '🦄')
+      global.setTimeout(deferred.done, milliseconds)
       return deferred.promise
     }
     const startTime = new Date().getTime()
@@ -338,5 +414,53 @@ describe('waitUntil', () => {
         { timeout: 100 }
       )
     ).rejects.toMatch('fail')
+  })
+})
+
+describe('throughputLimiter', () => {
+  test('first call to throttle completes without delay', async () => {
+    const limiter = throughputLimiter(100)
+    const startTime = new Date().getTime()
+    expect(limiter.getCurrentRate()).toBe(0)
+    await limiter.throttle(1000)
+    const endTime = new Date().getTime()
+    expect(endTime - startTime).toBeLessThan(5)
+  })
+  test('second call to throttle completes without delay if maxUnitsPerSec is Infinity', async () => {
+    const limiter = throughputLimiter(Infinity)
+    const startTime = new Date().getTime()
+    await limiter.throttle(1000)
+    await limiter.throttle(1000)
+    const endTime = new Date().getTime()
+    expect(endTime - startTime).toBeLessThan(5)
+  })
+  test('throughput should be throttled', async () => {
+    const limiter = throughputLimiter(500)
+    const startTime = new Date().getTime()
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(1000)
+    expect(limiter.getCurrentRate()).toBeLessThan(1000)
+  })
+  test('options should work as expected', async () => {
+    const limiter = throughputLimiter(500, { windowLength: 2, sleepTime: 200 })
+    const startTime = new Date().getTime()
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(1500)
   })
 })
