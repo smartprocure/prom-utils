@@ -34,7 +34,8 @@
     "wait",
     "throughput",
     "throttle",
-    "govern"
+    "govern",
+    "sleep"
   ],
   "license": "ISC",
   "prettier": {
