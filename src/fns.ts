@@ -97,8 +97,8 @@ export const throughputLimiter = (
   tl('init - sleepTime %d', sleepTime)
 
   /**
-   * Get the current rate (items/sec). Returns 0 if `throttle` has been
-   * called less than two times.
+   * Get the current rate (items/sec). Returns 0 if `throttle` has not been
+   * called.
    */
   const getCurrentRate = () => {
     tl('getCurrentRate called')
