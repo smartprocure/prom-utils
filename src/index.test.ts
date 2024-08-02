@@ -419,13 +419,16 @@ describe('waitUntil', () => {
 
 describe('throughputLimiter', () => {
   test('first call to throttle completes without delay', async () => {
+    expect.assertions(2)
     const limiter = throughputLimiter(100)
     const startTime = new Date().getTime()
+    expect(limiter.getCurrentRate()).toBe(0)
     await limiter.throttle(1000)
     const endTime = new Date().getTime()
     expect(endTime - startTime).toBeLessThan(5)
   })
   test('second call to throttle completes without delay if maxItemsPerSec is Infinity', async () => {
+    expect.assertions(1)
     const limiter = throughputLimiter(Infinity)
     const startTime = new Date().getTime()
     await limiter.throttle(1000)
@@ -434,6 +437,7 @@ describe('throughputLimiter', () => {
     expect(endTime - startTime).toBeLessThan(5)
   })
   test('throughput should be throttled', async () => {
+    expect.assertions(2)
     const limiter = throughputLimiter(500)
     const startTime = new Date().getTime()
     await limiter.throttle(250)
@@ -449,6 +453,7 @@ describe('throughputLimiter', () => {
     expect(limiter.getCurrentRate()).toBeLessThan(1000)
   })
   test('options should work as expected', async () => {
+    expect.assertions(1)
     const limiter = throughputLimiter(500, { windowLength: 2, sleepTime: 200 })
     const startTime = new Date().getTime()
     await limiter.throttle(250)
