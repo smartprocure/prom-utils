@@ -11,11 +11,11 @@ import {
   WaitOptions,
 } from './types'
 
-const rl = _debug('prom-utils:rateLimit')
-const tl = _debug('prom-utils:throughputLimiter')
-const bq = _debug('prom-utils:batchQueue')
-const pm = _debug('prom-utils:pacemaker')
-const wu = _debug('prom-utils:waitUntil')
+const debugRL = _debug('prom-utils:rateLimit')
+const debugTL = _debug('prom-utils:throughputLimiter')
+const debugBQ = _debug('prom-utils:batchQueue')
+const debugPM = _debug('prom-utils:pacemaker')
+const debugWU = _debug('prom-utils:waitUntil')
 
 /**
  * Limit the concurrency of promises. This can be used to control
@@ -32,7 +32,7 @@ const wu = _debug('prom-utils:waitUntil')
  * ```
  */
 export const rateLimit = <T = unknown>(limit: number) => {
-  rl('limit: %d', limit)
+  debugRL('limit: %d', limit)
   const set = new Set<Promise<T>>()
   /**
    * Add a promise. Returns immediately if limit has not been
@@ -41,21 +41,21 @@ export const rateLimit = <T = unknown>(limit: number) => {
   const add = async (prom: Promise<T>) => {
     // Add to set
     set.add(prom)
-    rl('set size: %d', set.size)
+    debugRL('set size: %d', set.size)
     // Create a child promise
     // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
       () => {
-        rl('delete')
+        debugRL('delete')
         // Remove from the set after resolving
         set.delete(prom)
       },
       // Handle the exception so we don't throw an UnhandledPromiseRejection exception
-      () => rl('exception thrown')
+      () => debugRL('exception thrown')
     )
     // Limit was reached
     if (set.size === limit) {
-      rl('limit reached: %d', limit)
+      debugRL('limit reached: %d', limit)
       // Wait for one item to finish
       await Promise.race(set)
     }
@@ -64,7 +64,7 @@ export const rateLimit = <T = unknown>(limit: number) => {
    * Wait for all promises to resolve
    */
   const finish = async () => {
-    rl('finish')
+    debugRL('finish')
     await Promise.all(set)
   }
   return { add, finish }
@@ -94,9 +94,9 @@ export const throughputLimiter = (
   const slidingWindow: { startTime: number; numItems: number }[] = []
   const windowLength = options.windowLength || 3
   const sleepTime = options.sleepTime || 100
-  tl('init - maxUnitsPerSec %d', maxUnitsPerSec)
-  tl('init - windowLength %d', windowLength)
-  tl('init - sleepTime %d', sleepTime)
+  debugTL('init - maxUnitsPerSec %d', maxUnitsPerSec)
+  debugTL('init - windowLength %d', windowLength)
+  debugTL('init - sleepTime %d', sleepTime)
 
   /**
    * Get the current rate (units/sec). The rate is determined by averaging the
@@ -105,16 +105,16 @@ export const throughputLimiter = (
    * if `throttle` has not been called.
    */
   const getCurrentRate = () => {
-    tl('getCurrentRate called')
+    debugTL('getCurrentRate called')
     if (slidingWindow.length > 0) {
       const { startTime } = slidingWindow[0]
       const numItems = sumBy(slidingWindow, 'numItems')
-      tl('total items %d', numItems)
+      debugTL('total items %d', numItems)
       const rate = numItems / ((new Date().getTime() - startTime) / 1000)
-      tl('current rate %d', rate)
+      debugTL('current rate %d', rate)
       return rate
     }
-    tl('current rate 0')
+    debugTL('current rate 0')
     return 0
   }
 
@@ -125,24 +125,24 @@ export const throughputLimiter = (
    * `maxUnitsPerSec` and the total number of units over the current window.
    */
   const throttle = async (numUnits: number) => {
-    tl('throttle called - %d', numUnits)
+    debugTL('throttle called - %d', numUnits)
     // Skip check if maxUnitsPerSec is Infinity
     if (maxUnitsPerSec === Infinity) {
-      tl('exiting throttle - maxUnitsPerSec is Infinity')
+      debugTL('exiting throttle - maxUnitsPerSec is Infinity')
       return
     }
     // Sleep if the current rate is above the max allowed. Repeat
     // until the rate has dropped sufficiently.
     while (getCurrentRate() > maxUnitsPerSec) {
-      tl('sleeping for %d', sleepTime)
+      debugTL('sleeping for %d', sleepTime)
       await sleep(sleepTime)
     }
     slidingWindow.push({ startTime: new Date().getTime(), numItems: numUnits })
     if (slidingWindow.length > windowLength) {
-      tl('truncating slidingWindow')
+      debugTL('truncating slidingWindow')
       slidingWindow.shift()
     }
-    tl('slidingWindow %o', slidingWindow)
+    debugTL('slidingWindow %o', slidingWindow)
   }
 
   return {
@@ -191,7 +191,7 @@ export function batchQueue<A, B>(
     maxItemsPerSec = Infinity,
     maxBytesPerSec = Infinity,
   } = options
-  bq('options %o', options)
+  debugBQ('options %o', options)
   let queue: A[] = []
   let timeoutId: ReturnType<typeof setTimeout>
   let prom: Promise<unknown>
@@ -206,10 +206,10 @@ export function batchQueue<A, B>(
    * rates is above the given threshold.
    */
   const flush = async () => {
-    bq('flush called - queue length %d', queue.length)
+    debugBQ('flush called - queue length %d', queue.length)
     // Clear the timeout
     clearTimeout(timeoutId)
-    bq('clearTimeout called')
+    debugBQ('clearTimeout called')
     // Wait for a timeout initiated flush to complete
     await prom
     // Queue is not empty
@@ -222,13 +222,13 @@ export function batchQueue<A, B>(
       ])
       // Call fn with queue
       const result = await fn(queue)
-      bq('fn called')
+      debugBQ('fn called')
       obj.lastResult = result
       // Reset the queue
       queue = []
       // Reset the size
       bytes = 0
-      bq('queue reset')
+      debugBQ('queue reset')
     }
   }
 
@@ -237,33 +237,33 @@ export function batchQueue<A, B>(
    * for queue to be flushed.
    */
   const enqueue = async (item: A) => {
-    bq('enqueue called')
+    debugBQ('enqueue called')
     // Wait for a timeout initiated flush to complete
     await prom
     // Start a timer if timeout is set and the queue is empty
     if (timeout && queue.length === 0) {
       timeoutId = setTimeout(() => {
-        bq('setTimeout cb')
+        debugBQ('setTimeout cb')
         prom = flush()
       }, timeout)
-      bq('setTimeout called')
+      debugBQ('setTimeout called')
     }
     // Add item to queue
     queue.push(item)
     // Calculate total bytes if a bytes-related option is set
     if (options.batchBytes || maxBytesPerSec < Infinity) {
       bytes += size(item)
-      bq('bytes %d', bytes)
+      debugBQ('bytes %d', bytes)
     }
     // Batch size reached
     if (queue.length === batchSize) {
-      bq('batchSize reached %d', queue.length)
+      debugBQ('batchSize reached %d', queue.length)
       // Wait for queue to be flushed
       await flush()
     }
     // Batch bytes reached
     else if (options.batchBytes && bytes >= options.batchBytes) {
-      bq('batchBytes reached %d', bytes)
+      debugBQ('batchBytes reached %d', bytes)
       // Wait for queue to be flushed
       await flush()
     }
@@ -349,7 +349,7 @@ export const pacemaker = async <T>(
     return await promise
   } finally {
     clearInterval(intervalId)
-    pm('interval cleared')
+    debugPM('interval cleared')
   }
 }
 
@@ -375,7 +375,7 @@ export const waitUntil = (
     // Start timeout timer if `timeout` is not set to Infinity
     if (timeout !== Infinity) {
       timeoutTimer = setTimeout(() => {
-        wu('timeout')
+        debugWU('timeout')
         clearTimeout(checkTimer)
         reject(new TimeoutError(`Did not complete in ${timeout} ms`))
       }, timeout)
@@ -385,10 +385,10 @@ export const waitUntil = (
      * Check the predicate for truthiness.
      */
     const check = async () => {
-      wu('check called')
+      debugWU('check called')
       try {
         if (await pred()) {
-          wu('pred returned truthy')
+          debugWU('pred returned truthy')
           clearTimeout(checkTimer)
           clearTimeout(timeoutTimer)
           resolve()
@@ -404,7 +404,7 @@ export const waitUntil = (
      * Check the predicate after `checkFrequency`.
      */
     const checkLater = () => {
-      wu('checkLater called')
+      debugWU('checkLater called')
       checkTimer = setTimeout(check, checkFrequency)
     }
     check()
