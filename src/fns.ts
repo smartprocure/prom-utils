@@ -11,7 +11,11 @@ import {
   WaitOptions,
 } from './types'
 
-const debug = _debug('prom-utils')
+const rl = _debug('prom-utils:rateLimit')
+const tl = _debug('prom-utils:throughputLimiter')
+const bq = _debug('prom-utils:batchQueue')
+const pm = _debug('prom-utils:pacemaker')
+const wu = _debug('prom-utils:waitUntil')
 
 /**
  * Limit the concurrency of promises. This can be used to control
@@ -26,7 +30,7 @@ const debug = _debug('prom-utils')
  * ```
  */
 export const rateLimit = <T = unknown>(limit: number) => {
-  debug('limit: %d', limit)
+  rl('limit: %d', limit)
   const set = new Set<Promise<T>>()
   /**
    * Add a promise. Returns immediately if limit has not been
@@ -35,21 +39,21 @@ export const rateLimit = <T = unknown>(limit: number) => {
   const add = async (prom: Promise<T>) => {
     // Add to set
     set.add(prom)
-    debug('set size: %d', set.size)
+    rl('set size: %d', set.size)
     // Create a child promise
     // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
       () => {
-        debug('delete')
+        rl('delete')
         // Remove from the set after resolving
         set.delete(prom)
       },
       // Handle the exception so we don't throw an UnhandledPromiseRejection exception
-      () => debug('exception thrown')
+      () => rl('exception thrown')
     )
     // Limit was reached
     if (set.size === limit) {
-      debug('limit reached: %d', limit)
+      rl('limit reached: %d', limit)
       // Wait for one item to finish
       await Promise.race(set)
     }
@@ -58,7 +62,7 @@ export const rateLimit = <T = unknown>(limit: number) => {
    * Wait for all promises to resolve
    */
   const finish = async () => {
-    debug('finish')
+    rl('finish')
     await Promise.all(set)
   }
   return { add, finish }
@@ -66,14 +70,14 @@ export const rateLimit = <T = unknown>(limit: number) => {
 
 /**
  * Limit throughput by sleeping until the rate (items/sec)
- * is less than `maxItemsPerSec`.
+ * is less than or equal to `maxItemsPerSec`.
  *
  * Example:
  * ```typescript
  * const limiter = throughputLimiter(1000)
  *
  * for(const batch of batches) {
- *   await limiter.start(batch.length)
+ *   await limiter.throttle(batch.length)
  *   console.log('Items/sec %d', limiter.getCurrentRate())
  * }
  * ```
@@ -85,25 +89,25 @@ export const throughputLimiter = (
   const slidingWindow: { startTime: number; numItems: number }[] = []
   const windowLength = options.windowLength || 3
   const sleepTime = options.sleepTime || 100
-  debug('maxItemsPerSec %d', maxItemsPerSec)
-  debug('windowLength %d', windowLength)
-  debug('sleepTime %d', sleepTime)
+  tl('init - maxItemsPerSec %d', maxItemsPerSec)
+  tl('init - windowLength %d', windowLength)
+  tl('init - sleepTime %d', sleepTime)
 
   /**
-   * Get the current rate (items/sec). Returns 0 if start has been called less
-   * than two times.
+   * Get the current rate (items/sec). Returns 0 if `throttle` has been
+   * called less than two times.
    */
   const getCurrentRate = () => {
-    debug('getCurrentRate called')
+    tl('getCurrentRate called')
     if (slidingWindow.length > 0) {
       const { startTime } = slidingWindow[0]
       const numItems = sumBy(slidingWindow, 'numItems')
-      debug('total items %d', numItems)
+      tl('total items %d', numItems)
       const rate = numItems / ((new Date().getTime() - startTime) / 1000)
-      debug('current rate %d', rate)
+      tl('current rate %d', rate)
       return rate
     }
-    debug('current rate 0')
+    tl('current rate 0')
     return 0
   }
 
@@ -114,20 +118,22 @@ export const throughputLimiter = (
    * `maxItemsPerSec` and the total number of items over the current window.
    */
   const throttle = async (numItems: number) => {
-    debug('start called - %d', numItems)
+    tl('throttle called - %d', numItems)
     // Skip check if maxItemsPerSec is Infinity
-    if (maxItemsPerSec < Infinity) {
-      while (getCurrentRate() > maxItemsPerSec) {
-        debug('sleeping for %d', sleepTime)
-        await sleep(sleepTime)
-      }
+    if (maxItemsPerSec === Infinity) {
+      tl('exiting throttle - maxItemsPerSec is Infinity')
+      return
+    }
+    while (getCurrentRate() > maxItemsPerSec) {
+      tl('sleeping for %d', sleepTime)
+      await sleep(sleepTime)
     }
     slidingWindow.push({ startTime: new Date().getTime(), numItems })
     if (slidingWindow.length > windowLength) {
-      debug('truncating slidingWindow')
+      tl('truncating slidingWindow')
       slidingWindow.shift()
     }
-    debug('slidingWindow %o', slidingWindow)
+    tl('slidingWindow %o', slidingWindow)
   }
 
   return {
@@ -137,7 +143,6 @@ export const throughputLimiter = (
 }
 
 /**
- *
  * Batch calls via a local queue. This can be used to batch values before
  * writing to a database, for example.
  *
@@ -146,6 +151,9 @@ export const throughputLimiter = (
  * no options are provided. You can pass `Infinity` to disregard `batchSize`.
  * If `timeout` is passed, the timer will be started when the first item is
  * enqueued and reset when `flush` is called explicitly or implicitly.
+ *
+ * Use `maxItemsPerSec` and/or `maxBytesPerSec` to limit throughput.
+ * Call `queue.getStats` to get the items/sec and bytes/sec rates.
  *
  * Call `queue.flush()` to flush explicitly.
  *
@@ -172,7 +180,7 @@ export function batchQueue<A, B>(
     maxItemsPerSec = Infinity,
     maxBytesPerSec = Infinity,
   } = options
-  debug('options %o', options)
+  bq('options %o', options)
   let queue: A[] = []
   let timeoutId: ReturnType<typeof setTimeout>
   let prom: Promise<unknown>
@@ -182,13 +190,15 @@ export function batchQueue<A, B>(
   const bytesLimiter = throughputLimiter(maxBytesPerSec)
 
   /**
-   * Call fn on queue and clear the queue.
+   * Call fn on queue and clear the queue. A delay may occur before fn is
+   * called if `maxItemsPerSec` or `maxBytesPerSec` are set and one of the
+   * rates is above the given threshold.
    */
   const flush = async () => {
-    debug('flush called - queue length %d', queue.length)
+    bq('flush called - queue length %d', queue.length)
     // Clear the timeout
     clearTimeout(timeoutId)
-    debug('clearTimeout called')
+    bq('clearTimeout called')
     // Wait for a timeout initiated flush to complete
     await prom
     // Queue is not empty
@@ -201,13 +211,13 @@ export function batchQueue<A, B>(
       ])
       // Call fn with queue
       const result = await fn(queue)
-      debug('fn called')
+      bq('fn called')
       obj.lastResult = result
       // Reset the queue
       queue = []
       // Reset the size
       bytes = 0
-      debug('queue reset')
+      bq('queue reset')
     }
   }
 
@@ -216,33 +226,33 @@ export function batchQueue<A, B>(
    * for queue to be flushed.
    */
   const enqueue = async (item: A) => {
-    debug('enqueue called')
+    bq('enqueue called')
     // Wait for a timeout initiated flush to complete
     await prom
     // Start a timer if timeout is set and the queue is empty
     if (timeout && queue.length === 0) {
       timeoutId = setTimeout(() => {
-        debug('setTimeout cb')
+        bq('setTimeout cb')
         prom = flush()
       }, timeout)
-      debug('setTimeout called')
+      bq('setTimeout called')
     }
     // Add item to queue
     queue.push(item)
-    // Calculate total bytes
+    // Calculate total bytes if a bytes-related option is set
     if (options.batchBytes || maxBytesPerSec < Infinity) {
       bytes += size(item)
-      debug('bytes %d', bytes)
+      bq('bytes %d', bytes)
     }
     // Batch size reached
     if (queue.length === batchSize) {
-      debug('batchSize reached %d', queue.length)
+      bq('batchSize reached %d', queue.length)
       // Wait for queue to be flushed
       await flush()
     }
     // Batch bytes reached
     else if (options.batchBytes && bytes >= options.batchBytes) {
-      debug('batchBytes reached %d', bytes)
+      bq('batchBytes reached %d', bytes)
       // Wait for queue to be flushed
       await flush()
     }
@@ -329,7 +339,7 @@ export const pacemaker = async <T>(
     return await promise
   } finally {
     clearInterval(intervalId)
-    debug('interval cleared')
+    pm('interval cleared')
   }
 }
 
@@ -355,7 +365,7 @@ export const waitUntil = (
     // Start timeout timer if `timeout` is not set to Infinity
     if (timeout !== Infinity) {
       timeoutTimer = setTimeout(() => {
-        debug('timeout')
+        wu('timeout')
         clearTimeout(checkTimer)
         reject(new TimeoutError(`Did not complete in ${timeout} ms`))
       }, timeout)
@@ -365,10 +375,10 @@ export const waitUntil = (
      * Check the predicate for truthiness.
      */
     const check = async () => {
-      debug('check called')
+      wu('check called')
       try {
         if (await pred()) {
-          debug('pred returned truthy')
+          wu('pred returned truthy')
           clearTimeout(checkTimer)
           clearTimeout(timeoutTimer)
           resolve()
@@ -384,7 +394,7 @@ export const waitUntil = (
      * Check the predicate after `checkFrequency`.
      */
     const checkLater = () => {
-      debug('checkLater called')
+      wu('checkLater called')
       checkTimer = setTimeout(check, checkFrequency)
     }
     check()

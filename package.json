@@ -12,7 +12,7 @@
     "build": "npm run clean && tsc --declaration",
     "build:watch": "tsc --watch",
     "test": "vitest run",
-    "test:debug": "DEBUG=prom-utils vitest run --disable-console-intercept --reporter=basic",
+    "test:debug": "DEBUG=prom-utils:* vitest run --disable-console-intercept --reporter=basic",
     "test:watch": "vitest",
     "lint": "eslint src/**"
   },

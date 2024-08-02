@@ -418,9 +418,17 @@ describe('waitUntil', () => {
 })
 
 describe('throughputLimiter', () => {
-  test('first call to start completes without delay', async () => {
+  test('first call to throttle completes without delay', async () => {
     const limiter = throughputLimiter(100)
     const startTime = new Date().getTime()
+    await limiter.throttle(1000)
+    const endTime = new Date().getTime()
+    expect(endTime - startTime).toBeLessThan(5)
+  })
+  test('second call to throttle completes without delay if maxItemsPerSec is Infinity', async () => {
+    const limiter = throughputLimiter(Infinity)
+    const startTime = new Date().getTime()
+    await limiter.throttle(1000)
     await limiter.throttle(1000)
     const endTime = new Date().getTime()
     expect(endTime - startTime).toBeLessThan(5)
@@ -438,5 +446,19 @@ describe('throughputLimiter', () => {
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(1000)
+  })
+  test('options should work as expected', async () => {
+    const limiter = throughputLimiter(500, {windowLength: 2, sleepTime: 200})
+    const startTime = new Date().getTime()
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    await setTimeout(100)
+    await limiter.throttle(250)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(1500)
   })
 })
