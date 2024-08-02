@@ -448,7 +448,7 @@ describe('throughputLimiter', () => {
     expect(elapsed).toBeGreaterThanOrEqual(1000)
   })
   test('options should work as expected', async () => {
-    const limiter = throughputLimiter(500, {windowLength: 2, sleepTime: 200})
+    const limiter = throughputLimiter(500, { windowLength: 2, sleepTime: 200 })
     const startTime = new Date().getTime()
     await limiter.throttle(250)
     await setTimeout(100)

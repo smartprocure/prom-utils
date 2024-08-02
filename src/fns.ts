@@ -275,7 +275,7 @@ export function batchQueue<A, B>(
  * Defer resolving a promise until `done` is called.
  */
 export function defer(): Deferred {
-  // eslint-disable-next-line
+   
   let done = () => {}
   const promise = new Promise<void>((resolve) => {
     // Swap original done fn with promise resolve fn

@@ -2,8 +2,9 @@
 
 -   Added `throughputLimiter` - Limit throughput (items/sec).
 -   Added `sleep` - Sleep for `time` ms before resolving the Promise.
--   `batchQueue` - Added `maxItemsPerSec` and `maxBytesPerSec` options.
+-   `batchQueue` - Added `maxItemsPerSec` and `maxBytesPerSec` options for throughput throttling.
 -   Changed testing library from jest to vitest.
+-   Bumped packages.
 
 # 0.9.0
 
