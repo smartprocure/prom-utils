@@ -151,6 +151,15 @@ const delay = (milliseconds: number) => {
 }
 ```
 
+## sleep
+
+Sleep for `time` ms before resolving the Promise.
+
+```typescript
+// Sleep for one second
+await sleep(1000)
+```
+
 ## pacemaker
 
 Call heartbeatFn every interval until promise resolves or rejects.
