@@ -71,28 +71,30 @@ export const rateLimit = <T = unknown>(limit: number) => {
 }
 
 /**
- * Limit throughput by sleeping until the rate (items/sec)
- * is less than or equal to `maxItemsPerSec`.
+ * Limit throughput by sleeping until the rate (units/sec)
+ * is less than or equal to `maxUnitsPerSec`. Units is intentionally
+ * abstract since it could represent records/sec or bytes/sec, for
+ * example.
  *
  * Example:
  * ```typescript
  * const limiter = throughputLimiter(1000)
  *
  * for(const batch of batches) {
- *   // Will wait until the rate is <= `maxItemsPerSec`
+ *   // Will wait until the rate is <= `maxUnitsPerSec`
  *   await limiter.throttle(batch.length)
  *   console.log('Items/sec %d', limiter.getCurrentRate())
  * }
  * ```
  */
 export const throughputLimiter = (
-  maxItemsPerSec: number,
+  maxUnitsPerSec: number,
   options: ThroughputLimiterOptions = {}
 ) => {
   const slidingWindow: { startTime: number; numItems: number }[] = []
   const windowLength = options.windowLength || 3
   const sleepTime = options.sleepTime || 100
-  tl('init - maxItemsPerSec %d', maxItemsPerSec)
+  tl('init - maxUnitsPerSec %d', maxUnitsPerSec)
   tl('init - windowLength %d', windowLength)
   tl('init - sleepTime %d', sleepTime)
 
@@ -118,16 +120,16 @@ export const throughputLimiter = (
    * Call before processing a batch of items. After the first call, a subsequent
    * call assumes that the `numItems` from the previous call were processed. A
    * call to `throttle` may sleep for a given period of time depending on
-   * `maxItemsPerSec` and the total number of items over the current window.
+   * `maxUnitsPerSec` and the total number of items over the current window.
    */
   const throttle = async (numItems: number) => {
     tl('throttle called - %d', numItems)
-    // Skip check if maxItemsPerSec is Infinity
-    if (maxItemsPerSec === Infinity) {
-      tl('exiting throttle - maxItemsPerSec is Infinity')
+    // Skip check if maxUnitsPerSec is Infinity
+    if (maxUnitsPerSec === Infinity) {
+      tl('exiting throttle - maxUnitsPerSec is Infinity')
       return
     }
-    while (getCurrentRate() > maxItemsPerSec) {
+    while (getCurrentRate() > maxUnitsPerSec) {
       tl('sleeping for %d', sleepTime)
       await sleep(sleepTime)
     }

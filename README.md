@@ -91,8 +91,10 @@ await queue.flush()
 
 ## throughputLimiter
 
-Limit throughput by sleeping until the rate (items/sec)
-is less than or equal to `maxItemsPerSec`.
+Limit throughput by sleeping until the rate (units/sec)
+is less than or equal to `maxUnitsPerSec`. Units is intentionally
+abstract since it could represent records/sec or bytes/sec, for
+example.
 
 **Example**
 
@@ -101,7 +103,7 @@ is less than or equal to `maxItemsPerSec`.
 const limiter = throughputLimiter(1000)
 
 for (const batch of batches) {
-    // Will wait until the rate is <= `maxItemsPerSec`
+    // Will wait until the rate is <= `maxUnitsPerSec`
     await limiter.throttle(batch.length)
     console.log('Items/sec %d', limiter.getCurrentRate())
 }
