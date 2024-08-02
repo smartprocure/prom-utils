@@ -50,8 +50,6 @@ for (const record of records) {
 await queue.flush()
 ```
 
-/
-
 **Types**
 
 ```typescript
