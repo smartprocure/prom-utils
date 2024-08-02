@@ -99,8 +99,9 @@ export const throughputLimiter = (
   tl('init - sleepTime %d', sleepTime)
 
   /**
-   * Get the current rate (items/sec). Returns 0 if `throttle` has not been
-   * called.
+   * Get the current rate (units/sec). The rate is determined by averaging the
+   * values in the sliding window starting from the first entry in the window
+   * to now. Returns 0 if `throttle` has not been called.
    */
   const getCurrentRate = () => {
     tl('getCurrentRate called')
@@ -117,23 +118,25 @@ export const throughputLimiter = (
   }
 
   /**
-   * Call before processing a batch of items. After the first call, a subsequent
-   * call assumes that the `numItems` from the previous call were processed. A
+   * Call before processing a batch of units. After the first call, a subsequent
+   * call assumes that the `numUnits` from the previous call were processed. A
    * call to `throttle` may sleep for a given period of time depending on
-   * `maxUnitsPerSec` and the total number of items over the current window.
+   * `maxUnitsPerSec` and the total number of units over the current window.
    */
-  const throttle = async (numItems: number) => {
-    tl('throttle called - %d', numItems)
+  const throttle = async (numUnits: number) => {
+    tl('throttle called - %d', numUnits)
     // Skip check if maxUnitsPerSec is Infinity
     if (maxUnitsPerSec === Infinity) {
       tl('exiting throttle - maxUnitsPerSec is Infinity')
       return
     }
+    // Sleep if the current rate is above the max allowed. Repeat
+    // until the rate has dropped sufficiently.
     while (getCurrentRate() > maxUnitsPerSec) {
       tl('sleeping for %d', sleepTime)
       await sleep(sleepTime)
     }
-    slidingWindow.push({ startTime: new Date().getTime(), numItems })
+    slidingWindow.push({ startTime: new Date().getTime(), numItems: numUnits })
     if (slidingWindow.length > windowLength) {
       tl('truncating slidingWindow')
       slidingWindow.shift()
