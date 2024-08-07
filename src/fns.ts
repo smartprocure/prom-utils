@@ -327,7 +327,7 @@ export const pausable = (timeout?: number) => {
   const pause = () => {
     deferred = defer()
     if (timeout) {
-      timeoutId = setTimeout(() => deferred?.done(), timeout)
+      timeoutId = setTimeout(resume, timeout)
     }
   }
   /**
