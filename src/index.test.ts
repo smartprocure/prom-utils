@@ -292,7 +292,7 @@ describe('pausable', () => {
 
     const startTime = new Date().getTime()
     for (const record of records) {
-      await shouldProcess.proceed()
+      await shouldProcess.maybeBlock()
       await processRecord(record)
     }
     const endTime = new Date().getTime()
@@ -313,7 +313,7 @@ describe('pausable', () => {
 
     const startTime = new Date().getTime()
     for (const record of records) {
-      await shouldProcess.proceed()
+      await shouldProcess.maybeBlock()
       await processRecord(record)
     }
     const endTime = new Date().getTime()

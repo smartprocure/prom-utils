@@ -1,3 +1,8 @@
+# 0.11.0
+
+-   `getCurrentRate` - returns an integer.
+-   `pausable` - changed `proceed` to `maybeBlock`.
+
 # 0.10.0
 
 -   Added `throughputLimiter` - Limit throughput (items/sec).

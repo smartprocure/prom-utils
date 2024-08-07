@@ -102,7 +102,7 @@ export const throughputLimiter = (
    * Get the current rate (units/sec). The rate is determined by averaging the
    * values in the sliding window where the elapsed time is determined by
    * comparing the first entry in the window to the current time. Returns 0
-   * if `throttle` has not been called.
+   * if `throttle` has not been called. Rate is always an integer.
    */
   const getCurrentRate = () => {
     debugTL('getCurrentRate called')
@@ -110,7 +110,9 @@ export const throughputLimiter = (
       const { timestamp } = slidingWindow[0]
       const numUnits = sumBy(slidingWindow, 'numUnits')
       debugTL('total units %d', numUnits)
-      const rate = numUnits / ((new Date().getTime() - timestamp) / 1000)
+      const rate = Math.floor(
+        numUnits / ((new Date().getTime() - timestamp) / 1000)
+      )
       debugTL('current rate %d', rate)
       return rate
     }
@@ -298,9 +300,9 @@ export function defer(): Deferred {
 }
 
 /**
- * Pause a loop by awaiting `proceed`. When `pause` is called `proceed` will
+ * Pause a loop by awaiting `maybeBlock`. When `pause` is called `maybeBlock` will
  * return a promise that is resolved when `resume` is called. Otherwise,
- * `proceed` will return immediately. If `timeout` is passed, `resume` will
+ * `maybeBlock` will return immediately. If `timeout` is passed, `resume` will
  * be called after `timeout` if it is not manually called first.
  *
  * ```typescript
@@ -310,7 +312,7 @@ export function defer(): Deferred {
  * onSomeOtherCondition(shouldProcess.resume)
  *
  * for (const record of records) {
- *   await shouldProcess.proceed()
+ *   await shouldProcess.maybeBlock()
  *   await processRecord(record)
  * }
  * ```
@@ -318,18 +320,29 @@ export function defer(): Deferred {
 export const pausable = (timeout?: number) => {
   let deferred: Deferred | undefined
   let timeoutId: ReturnType<typeof setTimeout>
+  /**
+   * Change the state to pause. If timeout is passed, that will change
+   * the state to resume for each call to pause after the specified timeout.
+   */
   const pause = () => {
     deferred = defer()
     if (timeout) {
       timeoutId = setTimeout(() => deferred?.done(), timeout)
     }
   }
+  /**
+   * Change the state to resume.
+   */
   const resume = () => {
     clearTimeout(timeoutId)
     deferred?.done()
   }
-  const proceed = () => deferred?.promise
-  return { pause, resume, proceed }
+  /**
+   * Should be awaited in a loop. Will block when in a pause state.
+   */
+  const maybeBlock = () => deferred?.promise
+
+  return { pause, resume, maybeBlock }
 }
 
 /**

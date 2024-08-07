@@ -124,9 +124,9 @@ export interface ThroughputLimiterOptions {
 
 ## pausable
 
-Pause a loop by awaiting `proceed`. When `pause` is called `proceed` will
+Pause a loop by awaiting `maybeBlock`. When `pause` is called `maybeBlock` will
 return a promise that is resolved when `resume` is called. Otherwise,
-`proceed` will return immediately. If `timeout` is passed, `resume` will
+`maybeBlock` will return immediately. If `timeout` is passed, `resume` will
 be called after `timeout` if it is not manually called first.
 
 ```typescript
@@ -136,7 +136,7 @@ onSomeCondition(shouldProcess.pause)
 onSomeOtherCondition(shouldProcess.resume)
 
 for (const record of records) {
-    await shouldProcess.proceed()
+    await shouldProcess.maybeBlock()
     await processRecord(record)
 }
 ```
