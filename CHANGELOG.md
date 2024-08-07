@@ -1,7 +1,7 @@
 # 0.11.0
 
 -   `getCurrentRate` - always returns an integer.
--   `pausable` - changed `proceed` to `maybeBlock`.
+-   BREAKING: `pausable` - changed `proceed` to `maybeBlock`.
 
 # 0.10.0
 
