@@ -1,7 +1,10 @@
 # 0.11.0
 
--   `getCurrentRate` - always returns an integer.
--   BREAKING: `pausable` - changed `proceed` to `maybeBlock`.
+-   Fixed: `rateLimit` should remove an item if it has rejected.
+-   `rateLimit` - Added `length` getter.
+-   `batchQueue` - Added `length` getter.
+-   `throughputLimiter.getCurrentRate` - always returns an integer.
+-   BREAKING: `pausable.proceed` changed to `pausable.maybeBlock`.
 
 # 0.10.0
 

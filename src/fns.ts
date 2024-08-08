@@ -47,11 +47,15 @@ export const rateLimit = <T = unknown>(limit: number) => {
     prom.then(
       () => {
         debugRL('delete')
-        // Remove from the set after resolving
+        // Remove from the set
         set.delete(prom)
       },
       // Handle the exception so we don't throw an UnhandledPromiseRejection exception
-      () => debugRL('exception thrown')
+      () => {
+        debugRL('exception thrown')
+        // Remove from the set
+        set.delete(prom)
+      }
     )
     // Limit was reached
     if (set.size === limit) {
@@ -67,7 +71,14 @@ export const rateLimit = <T = unknown>(limit: number) => {
     debugRL('finish')
     await Promise.all(set)
   }
-  return { add, finish }
+  return {
+    add,
+    finish,
+    /** Number of pending promises. */
+    get length() {
+      return set.size
+    },
+  }
 }
 
 /**
@@ -280,7 +291,14 @@ export function batchQueue<A, B>(
     bytesPerSec: bytesLimiter.getCurrentRate(),
   })
 
-  const obj: QueueResult<A, B> = { flush, enqueue, getStats }
+  const obj: QueueResult<A, B> = {
+    flush,
+    enqueue,
+    getStats,
+    get length() {
+      return queue.length
+    },
+  }
   return obj
 }
 
@@ -320,6 +338,7 @@ export function defer(): Deferred {
 export const pausable = (timeout?: number) => {
   let deferred: Deferred | undefined
   let timeoutId: ReturnType<typeof setTimeout>
+  let isPaused = false
   /**
    * Change the state to pause. If timeout is passed, that will change
    * the state to resume for each call to pause after the specified timeout.
@@ -329,6 +348,7 @@ export const pausable = (timeout?: number) => {
     if (timeout) {
       timeoutId = setTimeout(resume, timeout)
     }
+    isPaused = true
   }
   /**
    * Change the state to resume.
@@ -336,13 +356,21 @@ export const pausable = (timeout?: number) => {
   const resume = () => {
     clearTimeout(timeoutId)
     deferred?.done()
+    isPaused = false
   }
   /**
    * Should be awaited in a loop. Will block when in a pause state.
    */
   const maybeBlock = () => deferred?.promise
 
-  return { pause, resume, maybeBlock }
+  return {
+    pause,
+    resume,
+    maybeBlock,
+    get isPaused() {
+      return isPaused
+    },
+  }
 }
 
 /**
