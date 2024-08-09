@@ -75,7 +75,7 @@ describe('rateLimit', () => {
   })
   test('rejections should not bubble up .finish', () => {
     expect.assertions(1)
-    return expect(async () => {
+    expect(async () => {
       const limiter = rateLimit(3)
       await limiter.add(setTimeout(10))
       await limiter.add(
