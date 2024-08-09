@@ -5,7 +5,11 @@ Promise utilities designed for looping.
 ## rateLimit
 
 Limit the concurrency of promises. This can be used to control
-how many requests are made to a server, for example.
+how many requests are made to a server, for example. Note:
+exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
+from being thrown in the case where the promise rejects before the limit is
+reached. Therefore, you must handle exceptions on a per promise basis.
+Wrapping `rateLimit` method calls in a try/catch will not work.
 
 ```typescript
 // Limit concurrency to at most 3

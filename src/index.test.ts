@@ -59,7 +59,7 @@ describe('rateLimit', () => {
   })
   // This test is here to ensure that the rejected promise doesn't
   // throw an UnhandledPromiseRejection exception.
-  test('rejections should bubble up .add', async () => {
+  test('rejections should not bubble up .add', async () => {
     expect.assertions(1)
     const limiter = rateLimit(3)
     // Shorter timeout to make sure that this rejects before the other promises resolve
@@ -70,9 +70,10 @@ describe('rateLimit', () => {
     )
     await limiter.add(setTimeout(10))
     await setTimeout(20)
+    // Check that the rejected promise was removed from the set.
     expect(limiter.length).toBe(0)
   })
-  test('rejections should bubble up .finish', () => {
+  test('rejections should not bubble up .finish', () => {
     expect.assertions(1)
     return expect(async () => {
       const limiter = rateLimit(3)
@@ -84,7 +85,7 @@ describe('rateLimit', () => {
       )
       // Call finish before reaching the limit of 3
       await limiter.finish()
-    }).rejects.toThrow('rejectedPromise')
+    }).not.toThrow('rejectedPromise')
   })
 })
 

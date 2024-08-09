@@ -19,7 +19,11 @@ const debugWU = _debug('prom-utils:waitUntil')
 
 /**
  * Limit the concurrency of promises. This can be used to control
- * how many requests are made to a server, for example.
+ * how many requests are made to a server, for example. Note:
+ * exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
+ * from being thrown in the case where the promise rejects before the limit is
+ * reached. Therefore, you must handle exceptions on a per promise basis.
+ * Wrapping `rateLimit` method calls in a try/catch will not work.
  *
  * ```typescript
  * const limiter = rateLimit(3)
@@ -69,7 +73,7 @@ export const rateLimit = <T = unknown>(limit: number) => {
    */
   const finish = async () => {
     debugRL('finish')
-    await Promise.all(set)
+    await Promise.allSettled(set)
   }
   return {
     add,
