@@ -5,7 +5,11 @@ Promise utilities designed for looping.
 ## rateLimit
 
 Limit the concurrency of promises. This can be used to control
-how many requests are made to a server, for example.
+how many requests are made to a server, for example. Note:
+exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
+from being thrown in the case where the promise rejects before the limit is
+reached. Therefore, you must handle exceptions on a per promise basis.
+Wrapping `rateLimit` method calls in a try/catch will not work.
 
 ```typescript
 // Limit concurrency to at most 3
@@ -124,9 +128,9 @@ export interface ThroughputLimiterOptions {
 
 ## pausable
 
-Pause a loop by awaiting `proceed`. When `pause` is called `proceed` will
+Pause a loop by awaiting `maybeBlock`. When `pause` is called `maybeBlock` will
 return a promise that is resolved when `resume` is called. Otherwise,
-`proceed` will return immediately. If `timeout` is passed, `resume` will
+`maybeBlock` will return immediately. If `timeout` is passed, `resume` will
 be called after `timeout` if it is not manually called first.
 
 ```typescript
@@ -136,7 +140,7 @@ onSomeCondition(shouldProcess.pause)
 onSomeOtherCondition(shouldProcess.resume)
 
 for (const record of records) {
-    await shouldProcess.proceed()
+    await shouldProcess.maybeBlock()
     await processRecord(record)
 }
 ```

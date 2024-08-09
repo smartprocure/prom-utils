@@ -12,6 +12,8 @@ export type QueueResult<A, B> = {
   lastResult?: Awaited<B>
   /** Get the current throughput rates. */
   getStats(): QueueStats
+  /** Length of the queue. */
+  get length(): number
 }
 
 export interface QueueOptions {
