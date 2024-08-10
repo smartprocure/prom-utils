@@ -50,13 +50,13 @@ export const rateLimit = <T = unknown>(limit: number) => {
     // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
       () => {
-        debugRL('delete')
+        debugRL('resolved')
         // Remove from the set
         set.delete(prom)
       },
       // Handle the exception so we don't throw an UnhandledPromiseRejection exception
       () => {
-        debugRL('exception thrown')
+        debugRL('rejected')
         // Remove from the set
         set.delete(prom)
       }
