@@ -4,7 +4,6 @@
 -   `rateLimit` - `.finish` swallows exceptions.
 -   `rateLimit` - Added `length` getter.
 -   `batchQueue` - Added `length` getter.
--   `throughputLimiter.getCurrentRate` - always returns an integer.
 -   BREAKING: `pausable.proceed` changed to `pausable.maybeBlock`.
 
 # 0.10.0

@@ -117,7 +117,7 @@ export const throughputLimiter = (
    * Get the current rate (units/sec). The rate is determined by averaging the
    * values in the sliding window where the elapsed time is determined by
    * comparing the first entry in the window to the current time. Returns 0
-   * if `throttle` has not been called. Rate is always an integer.
+   * if `throttle` has not been called.
    */
   const getCurrentRate = () => {
     debugTL('getCurrentRate called')
@@ -125,9 +125,7 @@ export const throughputLimiter = (
       const { timestamp } = slidingWindow[0]
       const numUnits = sumBy(slidingWindow, 'numUnits')
       debugTL('total units %d', numUnits)
-      const rate = Math.floor(
-        numUnits / ((new Date().getTime() - timestamp) / 1000)
-      )
+      const rate = numUnits / ((new Date().getTime() - timestamp) / 1000)
       debugTL('current rate %d', rate)
       return rate
     }
