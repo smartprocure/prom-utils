@@ -35,7 +35,7 @@ describe('rateLimit', () => {
     expect(elapsed).toBeGreaterThan(900)
   })
   test('should finish awaiting remaining promises', async () => {
-    expect.assertions(3)
+    expect.assertions(4)
     // Pass type variable
     const limiter = rateLimit<string>(3)
     const done: string[] = []
@@ -54,11 +54,13 @@ describe('rateLimit', () => {
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(2000)
     expect(elapsed).toBeLessThan(3000)
-    expect(done.length).toEqual(5)
+    expect(done.length).toBe(5)
+    expect(limiter.length).toBe(0)
   })
   // This test is here to ensure that the rejected promise doesn't
   // throw an UnhandledPromiseRejection exception.
-  test('rejections should bubble up .add', async () => {
+  test('rejections should not bubble up .add', async () => {
+    expect.assertions(1)
     const limiter = rateLimit(3)
     // Shorter timeout to make sure that this rejects before the other promises resolve
     await limiter.add(
@@ -67,10 +69,13 @@ describe('rateLimit', () => {
       })
     )
     await limiter.add(setTimeout(10))
+    await setTimeout(20)
+    // Check that the rejected promise was removed from the set.
+    expect(limiter.length).toBe(0)
   })
-  test('rejections should bubble up .finish', () => {
+  test('rejections should not bubble up .finish', () => {
     expect.assertions(1)
-    return expect(async () => {
+    expect(async () => {
       const limiter = rateLimit(3)
       await limiter.add(setTimeout(10))
       await limiter.add(
@@ -80,13 +85,13 @@ describe('rateLimit', () => {
       )
       // Call finish before reaching the limit of 3
       await limiter.finish()
-    }).rejects.toThrow('rejectedPromise')
+    }).not.toThrow('rejectedPromise')
   })
 })
 
 describe('batchQueue', () => {
   test('should batch items up to batchSize', async () => {
-    expect.assertions(2)
+    expect.assertions(3)
     const calls: any[] = []
     const fn = async (records: string[]) => {
       calls.push(records)
@@ -103,6 +108,7 @@ describe('batchQueue', () => {
     await queue.flush()
     expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
     expect(queue.lastResult).toBe(1)
+    expect(queue.length).toBe(0)
   })
   test('should flush queue if timeout is reached before batchSize', async () => {
     expect.assertions(1)
@@ -292,7 +298,7 @@ describe('pausable', () => {
 
     const startTime = new Date().getTime()
     for (const record of records) {
-      await shouldProcess.proceed()
+      await shouldProcess.maybeBlock()
       await processRecord(record)
     }
     const endTime = new Date().getTime()
@@ -313,13 +319,21 @@ describe('pausable', () => {
 
     const startTime = new Date().getTime()
     for (const record of records) {
-      await shouldProcess.proceed()
+      await shouldProcess.maybeBlock()
       await processRecord(record)
     }
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(200)
     expect(records).toEqual(['Joe', 'Frank', 'Bob'])
+  })
+  test('isPaused works', () => {
+    const shouldProcess = pausable()
+    expect(shouldProcess.isPaused).toBe(false)
+    shouldProcess.pause()
+    expect(shouldProcess.isPaused).toBe(true)
+    shouldProcess.resume()
+    expect(shouldProcess.isPaused).toBe(false)
   })
 })
 

@@ -19,7 +19,11 @@ const debugWU = _debug('prom-utils:waitUntil')
 
 /**
  * Limit the concurrency of promises. This can be used to control
- * how many requests are made to a server, for example.
+ * how many requests are made to a server, for example. Note:
+ * exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
+ * from being thrown in the case where the promise rejects before the limit is
+ * reached. Therefore, you must handle exceptions on a per promise basis.
+ * Wrapping `rateLimit` method calls in a try/catch will not work.
  *
  * ```typescript
  * const limiter = rateLimit(3)
@@ -46,12 +50,16 @@ export const rateLimit = <T = unknown>(limit: number) => {
     // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
       () => {
-        debugRL('delete')
-        // Remove from the set after resolving
+        debugRL('resolved')
+        // Remove from the set
         set.delete(prom)
       },
       // Handle the exception so we don't throw an UnhandledPromiseRejection exception
-      () => debugRL('exception thrown')
+      () => {
+        debugRL('rejected')
+        // Remove from the set
+        set.delete(prom)
+      }
     )
     // Limit was reached
     if (set.size === limit) {
@@ -65,9 +73,16 @@ export const rateLimit = <T = unknown>(limit: number) => {
    */
   const finish = async () => {
     debugRL('finish')
-    await Promise.all(set)
+    await Promise.allSettled(set)
   }
-  return { add, finish }
+  return {
+    add,
+    finish,
+    /** Number of pending promises. */
+    get length() {
+      return set.size
+    },
+  }
 }
 
 /**
@@ -278,7 +293,14 @@ export function batchQueue<A, B>(
     bytesPerSec: bytesLimiter.getCurrentRate(),
   })
 
-  const obj: QueueResult<A, B> = { flush, enqueue, getStats }
+  const obj: QueueResult<A, B> = {
+    flush,
+    enqueue,
+    getStats,
+    get length() {
+      return queue.length
+    },
+  }
   return obj
 }
 
@@ -298,9 +320,9 @@ export function defer(): Deferred {
 }
 
 /**
- * Pause a loop by awaiting `proceed`. When `pause` is called `proceed` will
+ * Pause a loop by awaiting `maybeBlock`. When `pause` is called `maybeBlock` will
  * return a promise that is resolved when `resume` is called. Otherwise,
- * `proceed` will return immediately. If `timeout` is passed, `resume` will
+ * `maybeBlock` will return immediately. If `timeout` is passed, `resume` will
  * be called after `timeout` if it is not manually called first.
  *
  * ```typescript
@@ -310,7 +332,7 @@ export function defer(): Deferred {
  * onSomeOtherCondition(shouldProcess.resume)
  *
  * for (const record of records) {
- *   await shouldProcess.proceed()
+ *   await shouldProcess.maybeBlock()
  *   await processRecord(record)
  * }
  * ```
@@ -318,18 +340,39 @@ export function defer(): Deferred {
 export const pausable = (timeout?: number) => {
   let deferred: Deferred | undefined
   let timeoutId: ReturnType<typeof setTimeout>
+  let isPaused = false
+  /**
+   * Change the state to pause. If timeout is passed, that will change
+   * the state to resume for each call to pause after the specified timeout.
+   */
   const pause = () => {
     deferred = defer()
     if (timeout) {
-      timeoutId = setTimeout(() => deferred?.done(), timeout)
+      timeoutId = setTimeout(resume, timeout)
     }
+    isPaused = true
   }
+  /**
+   * Change the state to resume.
+   */
   const resume = () => {
     clearTimeout(timeoutId)
     deferred?.done()
+    isPaused = false
   }
-  const proceed = () => deferred?.promise
-  return { pause, resume, proceed }
+  /**
+   * Should be awaited in a loop. Will block when in a pause state.
+   */
+  const maybeBlock = () => deferred?.promise
+
+  return {
+    pause,
+    resume,
+    maybeBlock,
+    get isPaused() {
+      return isPaused
+    },
+  }
 }
 
 /**

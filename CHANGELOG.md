@@ -1,3 +1,11 @@
+# 0.11.0
+
+-   Fixed: `rateLimit` should remove an item if it has rejected.
+-   `rateLimit` - `.finish` swallows exceptions.
+-   `rateLimit` - Added `length` getter.
+-   `batchQueue` - Added `length` getter.
+-   BREAKING: `pausable.proceed` changed to `pausable.maybeBlock`.
+
 # 0.10.0
 
 -   Added `throughputLimiter` - Limit throughput (items/sec).

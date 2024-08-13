@@ -1,6 +1,6 @@
 {
   "name": "prom-utils",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Promise utilities: rate limiting, queueing/batching, defer, etc.",
   "author": "GovSpend",
   "main": "dist/index.js",
