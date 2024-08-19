@@ -1,3 +1,7 @@
+# 0.12.0
+
+-   Added `raceTimeout`.
+
 # 0.11.0
 
 -   Fixed: `rateLimit` should remove an item if it has rejected.

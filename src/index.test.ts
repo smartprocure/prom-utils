@@ -6,8 +6,10 @@ import {
   defer,
   pacemaker,
   pausable,
+  raceTimeout,
   rateLimit,
   throughputLimiter,
+  TIMEOUT,
   TimeoutError,
   waitUntil,
 } from './fns'
@@ -476,5 +478,16 @@ describe('throughputLimiter', () => {
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(1500)
+  })
+})
+
+describe('raceTimeout', () => {
+  test('It should return promise if resolved before timeout', async () => {
+    const winner = await raceTimeout(setTimeout(5, 'done'), 10)
+    expect(winner).toBe('done')
+  })
+  test('It should return the TIMEOUT symbol', async () => {
+    const winner = await raceTimeout(setTimeout(10, 'done'), 5)
+    expect(winner).toBe(TIMEOUT)
   })
 })

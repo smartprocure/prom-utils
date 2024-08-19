@@ -206,3 +206,16 @@ setTimeout(() => {
 }, 250)
 await waitUntil(() => isTruthy)
 ```
+
+## raceTimeout
+
+Returns the value of the promise if the promise resolves prior to timeout.
+If the timeout happens first, the exported TIMEOUT symbol is returned.
+
+```typescript
+const winner = await raceTimeout(someProm, 5)
+
+if (winner === TIMEOUT) {
+  // Do something
+}
+```
