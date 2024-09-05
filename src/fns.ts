@@ -474,7 +474,7 @@ export const TIMEOUT = Symbol('TIMEOUT')
  * ```
  */
 export const raceTimeout = <A>(prom: Promise<A>, timeout: number) =>
-  Promise.race([
+  Promise.race<A | typeof TIMEOUT>([
     prom,
     new Promise((resolve) => setTimeout(() => resolve(TIMEOUT), timeout)),
   ])

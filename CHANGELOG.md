@@ -1,3 +1,7 @@
+# 0.12.1
+
+- Fixed type for `raceTimeout`.
+
 # 0.12.0
 
 -   Added `raceTimeout`.
