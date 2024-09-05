@@ -458,3 +458,23 @@ export const waitUntil = (
  */
 export const sleep = (time = 0) =>
   new Promise((resolve) => setTimeout(resolve, time))
+
+export const TIMEOUT = Symbol('TIMEOUT')
+
+/**
+ * Returns the value of the promise if the promise resolves prior to timeout.
+ * If the timeout happens first, the exported TIMEOUT symbol is returned.
+ *
+ * @example
+ * ```ts
+ * const winner = await raceTimeout(someProm, 5)
+ * if (winner === TIMEOUT) {
+ *   // Do something
+ * }
+ * ```
+ */
+export const raceTimeout = <A>(prom: Promise<A>, timeout: number) =>
+  Promise.race([
+    prom,
+    new Promise((resolve) => setTimeout(() => resolve(TIMEOUT), timeout)),
+  ])
