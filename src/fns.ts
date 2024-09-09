@@ -16,6 +16,7 @@ const debugTL = _debug('prom-utils:throughputLimiter')
 const debugBQ = _debug('prom-utils:batchQueue')
 const debugPM = _debug('prom-utils:pacemaker')
 const debugWU = _debug('prom-utils:waitUntil')
+const debugP = _debug('prom-utils:pausable')
 
 /**
  * Limit the concurrency of promises. This can be used to control
@@ -346,9 +347,14 @@ export const pausable = (timeout?: number) => {
    * the state to resume for each call to pause after the specified timeout.
    */
   const pause = () => {
+    debugP('pause called')
     deferred = defer()
     if (timeout) {
-      timeoutId = setTimeout(resume, timeout)
+      timeoutId = setTimeout(() => {
+        debugP('timeout')
+        resume()
+      }, timeout)
+      debugP('setTimeout called')
     }
     isPaused = true
   }
@@ -356,7 +362,11 @@ export const pausable = (timeout?: number) => {
    * Change the state to resume.
    */
   const resume = () => {
-    clearTimeout(timeoutId)
+    debugP('resume called')
+    if (timeout) {
+      clearTimeout(timeoutId)
+      debugP('timeout cleared')
+    }
     deferred?.done()
     isPaused = false
   }

@@ -1,6 +1,11 @@
+# 0.13.0
+
+-   Added debug statements for `pausable`.
+-   Bumped dependencies.
+
 # 0.12.1
 
-- Fixed type for `raceTimeout`.
+-   Fixed type for `raceTimeout`.
 
 # 0.12.0
 
