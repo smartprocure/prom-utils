@@ -203,6 +203,7 @@ export function batchQueue<A, B>(
 ) {
   const {
     batchSize = 500,
+    batchBytes,
     timeout,
     maxItemsPerSec = Infinity,
     maxBytesPerSec = Infinity,
@@ -260,6 +261,7 @@ export function batchQueue<A, B>(
     if (timeout && queue.length === 0) {
       timeoutId = setTimeout(() => {
         debugBQ('setTimeout cb')
+        obj.lastFlush = { timeout }
         prom = flush()
       }, timeout)
       debugBQ('setTimeout called')
@@ -267,19 +269,21 @@ export function batchQueue<A, B>(
     // Add item to queue
     queue.push(item)
     // Calculate total bytes if a bytes-related option is set
-    if (options.batchBytes || maxBytesPerSec < Infinity) {
+    if (batchBytes || maxBytesPerSec < Infinity) {
       bytes += size(item)
       debugBQ('bytes %d', bytes)
     }
     // Batch size reached
     if (queue.length === batchSize) {
       debugBQ('batchSize reached %d', queue.length)
+      obj.lastFlush = { batchSize }
       // Wait for queue to be flushed
       await flush()
     }
     // Batch bytes reached
-    else if (options.batchBytes && bytes >= options.batchBytes) {
+    else if (batchBytes && bytes >= batchBytes) {
       debugBQ('batchBytes reached %d', bytes)
+      obj.lastFlush = { batchBytes }
       // Wait for queue to be flushed
       await flush()
     }

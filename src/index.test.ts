@@ -93,7 +93,7 @@ describe('rateLimit', () => {
 
 describe('batchQueue', () => {
   test('should batch items up to batchSize', async () => {
-    expect.assertions(3)
+    expect.assertions(4)
     const calls: any[] = []
     const fn = async (records: string[]) => {
       calls.push(records)
@@ -110,10 +110,11 @@ describe('batchQueue', () => {
     await queue.flush()
     expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
     expect(queue.lastResult).toBe(1)
+    expect(queue.lastFlush).toEqual({ batchSize })
     expect(queue.length).toBe(0)
   })
   test('should flush queue if timeout is reached before batchSize', async () => {
-    expect.assertions(1)
+    expect.assertions(2)
     const calls: any[] = []
     const fn = async (records: string[]) => {
       calls.push(records)
@@ -130,6 +131,7 @@ describe('batchQueue', () => {
     }
     await queue.flush()
     expect(calls).toEqual([['Joe'], ['Frank'], ['Bob']])
+    expect(queue.lastFlush).toEqual({ timeout })
   })
   test('should reset timer if batchSize is reached before timeout', async () => {
     expect.assertions(1)
@@ -171,7 +173,7 @@ describe('batchQueue', () => {
     expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
   })
   test('should flush queue if batchBytes is reached before batchSize', async () => {
-    expect.assertions(1)
+    expect.assertions(2)
     const calls: any[] = []
     const fn = async (records: string[]) => {
       calls.push(records)
@@ -190,6 +192,7 @@ describe('batchQueue', () => {
       ['Joe', 'Frank'],
       ['Bob', 'Tim'],
     ])
+    expect(queue.lastFlush).toEqual({ batchBytes })
   })
   test('should flush queue if batchSize is reached before batchBytes', async () => {
     expect.assertions(1)

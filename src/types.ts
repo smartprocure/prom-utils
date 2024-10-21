@@ -1,3 +1,8 @@
+export type LastFlush =
+  | { timeout: number }
+  | { batchSize: number }
+  | { batchBytes: number }
+
 export interface QueueStats {
   itemsPerSec: number
   bytesPerSec: number
@@ -10,6 +15,11 @@ export type QueueResult<A, B> = {
   enqueue(item: A): Promise<void>
   /** The last result returned from calling `fn`. */
   lastResult?: Awaited<B>
+  /**
+   * The cause for the last automatic queue flush. Will be one of the
+   * following: timeout, batchSize, or batchBytes.
+   */
+  lastFlush?: LastFlush
   /** Get the current throughput rates. */
   getStats(): QueueStats
   /** Length of the queue. */
