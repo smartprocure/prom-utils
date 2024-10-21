@@ -42,6 +42,9 @@ Call `queue.flush()` to flush explicitly.
 The last result of calling `fn` can be obtained by referencing `lastResult`
 on the returned object.
 
+The cause of the last automatic queue flush can be obtained by referencing
+`lastFlush` on the returned object.
+
 ```typescript
 const writeToDatabase = async (records) => {...}
 
