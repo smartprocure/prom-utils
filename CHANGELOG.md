@@ -1,3 +1,7 @@
+# 0.14.0
+
+-   `batchQueue` - Added `lastFlush`.
+
 # 0.13.0
 
 -   Added debug statements for `pausable`.
