@@ -54,7 +54,7 @@ export const rateLimit = <T = unknown>(
   const add = async (prom: Promise<T>) => {
     // Add to set
     set.add(prom)
-    debugRL('set size: %d', set.size)
+    debugRL('add called. set size: %d', set.size)
     // Create a child promise
     // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
