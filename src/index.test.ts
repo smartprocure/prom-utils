@@ -89,6 +89,18 @@ describe('rateLimit', () => {
       await limiter.finish()
     }).not.toThrow('rejectedPromise')
   })
+  test('should allow at most maxItemsPerSec if option is set', async () => {
+    expect.assertions(1)
+    const limiter = rateLimit(3, { maxItemsPerSec: 1 })
+    const startTime = new Date().getTime()
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(2030)
+  })
 })
 
 describe('batchQueue', () => {

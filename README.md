@@ -9,7 +9,10 @@ how many requests are made to a server, for example. Note:
 exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
 from being thrown in the case where the promise rejects before the limit is
 reached. Therefore, you must handle exceptions on a per promise basis.
-Wrapping `rateLimit` method calls in a try/catch will not work.
+Wrapping `rateLimit` method calls in a try/catch will not work. You can
+set `limit` to Infinity to disregard the limit.
+
+**Example**
 
 ```typescript
 // Limit concurrency to at most 3
@@ -21,6 +24,15 @@ for (const url of urls) {
 }
 // Wait for unresolved promises to resolve
 await limiter.finish()
+```
+
+**Types**
+
+```typescript
+export interface RateLimitOptions {
+  /** Maximum throughput allowed (item/sec). */
+  maxItemsPerSec?: number
+}
 ```
 
 ## batchQueue
@@ -45,15 +57,16 @@ on the returned object.
 The cause of the last automatic queue flush can be obtained by referencing
 `lastFlush` on the returned object.
 
+**Example**
+
 ```typescript
 const writeToDatabase = async (records) => {...}
+const batchSize = 250
 
-const queue = batchQueue(writeToDatabase)
+const queue = batchQueue(writeToDatabase, { batchSize })
 for (const record of records) {
-  // Will call `fn` when a threshold is met
   await queue.enqueue(record)
 }
-// Call `fn` with remaining queued items
 await queue.flush()
 ```
 
@@ -83,19 +96,6 @@ export interface QueueOptions {
     /** Maximum throughput allowed (bytes/sec). */
     maxBytesPerSec?: number
 }
-```
-
-**Example**
-
-```typescript
-const writeToDatabase = async (records) => {...}
-const batchSize = 250
-
-const queue = batchQueue(writeToDatabase, { batchSize })
-for (const record of records) {
-  await queue.enqueue(record)
-}
-await queue.flush()
 ```
 
 ## throughputLimiter
@@ -189,6 +189,16 @@ const result = await pacemaker(heartbeatFn, someProm)
 Wait until the predicate returns truthy or the timeout expires.
 Returns a promise.
 
+**Example**
+
+```typescript
+let isTruthy = false
+setTimeout(() => {
+    isTruthy = true
+}, 250)
+await waitUntil(() => isTruthy)
+```
+
 **Types**
 
 ```typescript
@@ -198,16 +208,6 @@ export interface WaitOptions {
     /** Check the predicate with this frequency. Defaults to 50 ms. */
     checkFrequency?: number
 }
-```
-
-**Example**
-
-```typescript
-let isTruthy = false
-setTimeout(() => {
-    isTruthy = true
-}, 250)
-await waitUntil(() => isTruthy)
 ```
 
 ## raceTimeout

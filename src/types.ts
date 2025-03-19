@@ -26,6 +26,11 @@ export type QueueResult<A, B> = {
   get length(): number
 }
 
+export interface RateLimitOptions {
+  /** Maximum throughput allowed (item/sec). */
+  maxItemsPerSec?: number
+}
+
 export interface QueueOptions {
   /** Wait for the batch to reach this number of elements before flushing the queue. */
   batchSize?: number

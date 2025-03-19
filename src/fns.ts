@@ -7,6 +7,7 @@ import {
   Deferred,
   QueueOptions,
   QueueResult,
+  RateLimitOptions,
   ThroughputLimiterOptions,
   WaitOptions,
 } from './types'
@@ -24,7 +25,8 @@ const debugP = _debug('prom-utils:pausable')
  * exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
  * from being thrown in the case where the promise rejects before the limit is
  * reached. Therefore, you must handle exceptions on a per promise basis.
- * Wrapping `rateLimit` method calls in a try/catch will not work.
+ * Wrapping `rateLimit` method calls in a try/catch will not work. You can
+ * set `limit` to Infinity to disregard the limit.
  *
  * ```typescript
  * const limiter = rateLimit(3)
@@ -36,9 +38,15 @@ const debugP = _debug('prom-utils:pausable')
  * await limiter.finish()
  * ```
  */
-export const rateLimit = <T = unknown>(limit: number) => {
+export const rateLimit = <T = unknown>(
+  limit: number,
+  options: RateLimitOptions = {}
+) => {
   debugRL('limit: %d', limit)
   const set = new Set<Promise<T>>()
+
+  const { maxItemsPerSec = Infinity } = options
+  const itemsLimiter = throughputLimiter(maxItemsPerSec)
   /**
    * Add a promise. Returns immediately if limit has not been
    * met. Waits for one promise to resolve if limit is met.
@@ -62,6 +70,10 @@ export const rateLimit = <T = unknown>(limit: number) => {
         set.delete(prom)
       }
     )
+    if (maxItemsPerSec) {
+      // Wait for the throughput to drop below thresholds for items/sec
+      await itemsLimiter.throttle(1)
+    }
     // Limit was reached
     if (set.size === limit) {
       debugRL('limit reached: %d', limit)
