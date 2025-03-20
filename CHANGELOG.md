@@ -1,6 +1,7 @@
 # 0.15.0
 
 - `rateLimit` - Added `maxItemsPerPeriod` option along with the options from `throughputLimiter`.
+- `throughputLimiter` - Added `minWindowLength`, `period`, and `expireAfter` options. The `windowLength` option is now `maxWindowLength`.
 
 # 0.14.0
 
