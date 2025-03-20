@@ -27,8 +27,10 @@ export type QueueResult<A, B> = {
 }
 
 export interface RateLimitOptions {
-  /** Maximum throughput allowed (item/sec). */
-  maxItemsPerSec?: number
+  /**
+   * Maximum throughput allowed (items/period). Defaults to items/sec.
+   */
+  maxItemsPerPeriod?: number
 }
 
 export interface QueueOptions {
@@ -59,8 +61,30 @@ export interface WaitOptions {
 }
 
 export interface ThroughputLimiterOptions {
-  /** The maximum number of throttle invocations to hold in memory. */
-  windowLength?: number
-  /** Number of ms to sleep before checking the rate again. Defaults to 100. */
+  /**
+   * The period of time in ms to track the rate. Set to 60_000 for 1 minute.
+   * Defaults to 1000, which is units/sec.
+   */
+  period?: number
+  /**
+   * The minimum number of throttle invocations prior to checking the rate.
+   * Use this to allow for short bursts without throttling.
+   * Should be 1 or more. Defaults to 1.
+   */
+  minWindowLength?: number
+  /**
+   * The maximum number of throttle invocations to hold in memory.
+   * Should be 1 or more. Defaults to 3.
+   */
+  maxWindowLength?: number
+  /**
+   * Number of ms to sleep before checking the rate again.
+   * Defaults to 100.
+   */
   sleepTime?: number
+  /**
+   * Expire throttle invocations after this many ms.
+   * Defaults to Infinity.
+   */
+  expireAfter?: number
 }

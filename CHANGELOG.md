@@ -1,6 +1,6 @@
 # 0.15.0
 
-- `rateLimit` - Added `maxItemsPerSec` option.`
+- `rateLimit` - Added `maxItemsPerPeriod` option along with the options from `throughputLimiter`.
 
 # 0.14.0
 

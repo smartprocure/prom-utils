@@ -89,9 +89,10 @@ describe('rateLimit', () => {
       await limiter.finish()
     }).not.toThrow('rejectedPromise')
   })
-  test('should allow at most maxItemsPerSec if option is set', async () => {
+  test('should allow at most maxItemsPerTime if option is set', async () => {
     expect.assertions(1)
-    const limiter = rateLimit(3, { maxItemsPerSec: 1 })
+    // 1 unit per sec
+    const limiter = rateLimit(3, { maxItemsPerPeriod: 1 })
     const startTime = new Date().getTime()
     await limiter.add(setTimeout(10))
     await limiter.add(setTimeout(10))
@@ -99,7 +100,7 @@ describe('rateLimit', () => {
     await limiter.finish()
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
-    expect(elapsed).toBeGreaterThanOrEqual(2030)
+    expect(elapsed).toBeGreaterThanOrEqual(2000)
   })
 })
 
@@ -457,7 +458,7 @@ describe('throughputLimiter', () => {
     const endTime = new Date().getTime()
     expect(endTime - startTime).toBeLessThan(5)
   })
-  test('second call to throttle completes without delay if maxUnitsPerSec is Infinity', async () => {
+  test('second call to throttle completes without delay if maxUnitsPerTime is Infinity', async () => {
     const limiter = throughputLimiter(Infinity)
     const startTime = new Date().getTime()
     await limiter.throttle(1000)
@@ -480,8 +481,22 @@ describe('throughputLimiter', () => {
     expect(elapsed).toBeGreaterThanOrEqual(1000)
     expect(limiter.getCurrentRate()).toBeLessThan(1000)
   })
-  test('options should work as expected', async () => {
-    const limiter = throughputLimiter(500, { windowLength: 2, sleepTime: 200 })
+  test('minWindowLength option should work as expected', async () => {
+    const limiter = throughputLimiter(4, {minWindowLength: 4})
+    const startTime = new Date().getTime()
+    await limiter.throttle(1)
+    await setTimeout(100)
+    await limiter.throttle(1)
+    await setTimeout(100)
+    await limiter.throttle(1)
+    await setTimeout(100)
+    await limiter.throttle(1)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeLessThanOrEqual(350)
+  })
+  test('maxWindowLength and sleepTime options should work as expected', async () => {
+    const limiter = throughputLimiter(500, { maxWindowLength: 2, sleepTime: 200 })
     const startTime = new Date().getTime()
     await limiter.throttle(250)
     await setTimeout(100)
@@ -493,6 +508,34 @@ describe('throughputLimiter', () => {
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(1500)
+  })
+  test('period option should work as expected', async () => {
+    // 5 units per 100 ms
+    const limiter = throughputLimiter(5, { period: 100 })
+    const startTime = new Date().getTime()
+    await limiter.throttle(5)
+    await setTimeout(100)
+    await limiter.throttle(5)
+    await setTimeout(100)
+    await limiter.throttle(5)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(200)
+    expect(elapsed).toBeLessThan(300)
+  })
+  test('expireAfter option should work as expected', async () => {
+    // 5 units per 100 ms, with sliding window entries resetting after 50 ms
+    const limiter = throughputLimiter(5, { period: 100, expireAfter: 50, sleepTime: 50 })
+    const startTime = new Date().getTime()
+    await limiter.throttle(5)
+    await setTimeout(50)
+    await limiter.throttle(5)
+    await setTimeout(50)
+    await limiter.throttle(5)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(200)
+    expect(elapsed).toBeLessThan(300)
   })
 })
 

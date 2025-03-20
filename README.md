@@ -30,8 +30,10 @@ await limiter.finish()
 
 ```typescript
 export interface RateLimitOptions {
-  /** Maximum throughput allowed (item/sec). */
-  maxItemsPerSec?: number
+  /**
+   * Maximum throughput allowed (items/period). Defaults to items/sec.
+   */
+  maxItemsPerPeriod?: number
 }
 ```
 
@@ -100,10 +102,10 @@ export interface QueueOptions {
 
 ## throughputLimiter
 
-Limit throughput by sleeping until the rate (units/sec)
-is less than or equal to `maxUnitsPerSec`. Units is intentionally
-abstract since it could represent records/sec or bytes/sec, for
-example.
+Limit throughput by sleeping until the rate (units/period)
+is less than or equal to `maxUnitsPerPeriod`. Units and period are
+intentionally abstract since it could represent records/sec or bytes/min,
+for example.
 
 **Example**
 
@@ -122,10 +124,32 @@ for (const batch of batches) {
 
 ```typescript
 export interface ThroughputLimiterOptions {
-    /** The maximum number of start invocations to hold in memory. */
-    windowLength?: number
-    /** Number of ms to sleep before checking the rate again. Defaults to 100. */
-    sleepTime?: number
+  /**
+   * The period of time in ms to track the rate. Set to 60_000 for 1 minute.
+   * Defaults to 1000, which is units/sec.
+   */
+  period?: number
+  /**
+   * The minimum number of throttle invocations prior to checking the rate.
+   * Use this to allow for short bursts without throttling.
+   * Should be 1 or more. Defaults to 1.
+   */
+  minWindowLength?: number
+  /**
+   * The maximum number of throttle invocations to hold in memory.
+   * Should be 1 or more. Defaults to 3.
+   */
+  maxWindowLength?: number
+  /**
+   * Number of ms to sleep before checking the rate again.
+   * Defaults to 100.
+   */
+  sleepTime?: number
+  /**
+   * Expire throttle invocations after this many ms.
+   * Defaults to Infinity.
+   */
+  expireAfter?: number
 }
 ```
 
