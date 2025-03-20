@@ -76,7 +76,7 @@ export const rateLimit = <T = unknown>(
       }
     )
     if (maxItemsPerPeriod) {
-      // Wait for the throughput to drop below thresholds for items/time
+      // Wait for the throughput to drop below thresholds for items/period
       await itemsLimiter.throttle(1)
     }
     // Limit was reached
