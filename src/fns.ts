@@ -77,7 +77,7 @@ export const rateLimit = <T = unknown>(
     )
     if (maxItemsPerPeriod) {
       // Wait for the throughput to drop below thresholds for items/period
-      await itemsLimiter.throttle(1)
+      await itemsLimiter.appendAndThrottle(1)
     }
     // Limit was reached
     if (set.size === limit) {
@@ -173,8 +173,7 @@ export const throughputLimiter = (
    * call to `throttle` may sleep for a given period of time depending on
    * `maxUnitsPerPeriod` and the total number of units over the current window.
    */
-  const throttle = async (numUnits: number) => {
-    debugTL('throttle called - %d', numUnits)
+  const throttle = async () => {
     // Skip check if maxUnitsPerSec is Infinity
     if (maxUnitsPerPeriod === Infinity) {
       debugTL('exiting throttle - maxUnitsPerSec is Infinity')
@@ -186,7 +185,10 @@ export const throughputLimiter = (
       debugTL('sleeping for %d', sleepTime)
       await sleep(sleepTime)
     }
+  }
 
+  const append = (numUnits: number) => {
+    debugTL('append called - %d', numUnits)
     const now = new Date().getTime()
     // Add the current invocation to the sliding window
     slidingWindow.push({ timestamp: now, numUnits })
@@ -206,9 +208,30 @@ export const throughputLimiter = (
     debugTL('slidingWindow %o', slidingWindow)
   }
 
+  /**
+   * This method is a combination of `throttle` and `append`. It will throttle
+   * first and then append the number of units to the sliding window.
+   */
+  const throttleAndAppend = async (numUnits: number) => {
+    await throttle()
+    append(numUnits)
+  }
+
+  /**
+   * This method is a combination of `append` and `throttle`. It will append
+   * the number of units to the sliding window and then throttle.
+   */
+  const appendAndThrottle = async (numUnits: number) => {
+    append(numUnits)
+    await throttle()
+  }
+
   return {
     getCurrentRate,
     throttle,
+    append,
+    throttleAndAppend,
+    appendAndThrottle,
   }
 }
 
@@ -281,13 +304,14 @@ export function batchQueue<A, B>(
     if (queue.length) {
       // Wait for the throughput to drop below thresholds for items/sec
       // and bytes/sec limiters.
-      await Promise.all([
-        itemsLimiter.throttle(queue.length),
-        bytesLimiter.throttle(bytes),
-      ])
+      await Promise.all([itemsLimiter.throttle(), bytesLimiter.throttle()])
       // Call fn with queue
       const result = await fn(queue)
       debugBQ('fn called')
+      // Append the number of items and bytes to the limiters
+      itemsLimiter.append(queue.length)
+      bytesLimiter.append(bytes)
+      // Set the last result
       obj.lastResult = result
       // Reset the queue
       queue = []
