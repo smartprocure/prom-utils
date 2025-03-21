@@ -20,6 +20,7 @@ const debugWU = _debug('prom-utils:waitUntil')
 const debugP = _debug('prom-utils:pausable')
 
 // Error classes
+export const OptionsError = makeError('OptionsError')
 export const TimeoutError = makeError('TimeoutError')
 
 /**
@@ -45,16 +46,17 @@ export const rateLimit = <T = unknown>(
   limit: number,
   options: RateLimitOptions & ThroughputLimiterOptions = {}
 ) => {
-  const { maxItemsPerPeriod = Infinity } = options
-  debugRL('limit: %d', limit)
-  debugRL('maxItemsPerPeriod: %d', maxItemsPerPeriod)
+  const { maxItemsPerPeriod } = options
+  debugRL('init - limit %d', limit)
+  debugRL('init - maxItemsPerPeriod %d', maxItemsPerPeriod)
   // Set of promises
   const set = new Set<Promise<T>>()
   // Items/period limiter
-  const itemsLimiter = throughputLimiter(maxItemsPerPeriod, options)
+  const itemsLimiter = throughputLimiter(maxItemsPerPeriod ?? Infinity, options)
   /**
-   * Add a promise. Returns immediately if limit has not been
-   * met. Waits for one promise to resolve if limit is met.
+   * Add a promise. Returns immediately if limit has not been met. Waits for one
+   * promise to resolve if limit is met. Waits for throughput to drop below
+   * threshold if `maxItemsPerPeriod` is set.
    */
   const add = async (prom: Promise<T>) => {
     // Add to set
@@ -134,7 +136,7 @@ export const throughputLimiter = (
 ) => {
   const slidingWindow: { timestamp: number; numUnits: number }[] = []
   const period = options.period || 1000
-  const minWindowLength = options.minWindowLength || 1
+  let minWindowLength = options.minWindowLength || 1
   const _maxWindowLength = options.maxWindowLength || 3
   const maxWindowLength =
     _maxWindowLength < minWindowLength ? minWindowLength : _maxWindowLength
@@ -146,6 +148,12 @@ export const throughputLimiter = (
   debugTL('init - maxWindowLength %d', maxWindowLength)
   debugTL('init - sleepTime %d', sleepTime)
   debugTL('init - expireAfter %d', expireAfter)
+
+  if (maxWindowLength === Infinity && expireAfter === Infinity) {
+    throw new OptionsError(
+      'maxWindowLength and expireAfter cannot both be Infinity'
+    )
+  }
 
   /**
    * Get the current rate (units/period). The rate is determined by averaging the
@@ -174,6 +182,7 @@ export const throughputLimiter = (
    * `maxUnitsPerPeriod` and the total number of units over the current window.
    */
   const throttle = async () => {
+    debugTL('throttle called')
     // Skip check if maxUnitsPerSec is Infinity
     if (maxUnitsPerPeriod === Infinity) {
       debugTL('exiting throttle - maxUnitsPerSec is Infinity')
@@ -188,7 +197,8 @@ export const throughputLimiter = (
   }
 
   const append = (numUnits: number) => {
-    debugTL('append called - %d', numUnits)
+    debugTL('append called with %d unit(s)', numUnits)
+    // Get the current time
     const now = new Date().getTime()
     // Add the current invocation to the sliding window
     slidingWindow.push({ timestamp: now, numUnits })
@@ -222,6 +232,10 @@ export const throughputLimiter = (
    * the number of units to the sliding window and then throttle.
    */
   const appendAndThrottle = async (numUnits: number) => {
+    // We need at least two invocations to calculate a rate
+    if (minWindowLength < 2) {
+      minWindowLength = 2
+    }
     append(numUnits)
     await throttle()
   }
