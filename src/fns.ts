@@ -168,7 +168,7 @@ export const throughputLimiter = (
       const numUnits = sumBy(slidingWindow, 'numUnits')
       debugTL('total units %d', numUnits)
       const rate = numUnits / ((new Date().getTime() - timestamp) / period)
-      debugTL('current rate %d', rate)
+      debugTL('current rate %d units/period', rate)
       return rate
     }
     debugTL('current rate 0')
@@ -188,12 +188,15 @@ export const throughputLimiter = (
       debugTL('exiting throttle - maxUnitsPerSec is Infinity')
       return
     }
+    let throttleTime = 0
     // Sleep if the current rate is above the max allowed. Repeat
     // until the rate has dropped sufficiently.
     while (getCurrentRate() > maxUnitsPerPeriod) {
-      debugTL('sleeping for %d', sleepTime)
+      debugTL('sleeping for %d ms', sleepTime)
       await sleep(sleepTime)
+      throttleTime += sleepTime
     }
+    debugTL('throttled for %d ms', throttleTime)
   }
 
   const append = (numUnits: number) => {
@@ -215,7 +218,7 @@ export const throughputLimiter = (
         debugTL('removed expired: %o', shifted)
       }
     }
-    debugTL('slidingWindow %o', slidingWindow)
+    debugTL('slidingWindow: %o', slidingWindow)
   }
 
   /**

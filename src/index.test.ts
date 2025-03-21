@@ -112,7 +112,6 @@ describe('rateLimit', () => {
       maxItemsPerPeriod: 2,
       period: 100,
       expireAfter: 100,
-      maxWindowLength: Infinity,
       sleepTime: 10,
     })
     const startTime = new Date().getTime()
