@@ -12,11 +12,15 @@ reached. Therefore, you must handle exceptions on a per promise basis.
 Wrapping `rateLimit` method calls in a try/catch will not work. You can
 set `limit` to Infinity to disregard the limit.
 
+To limit the promises for a given period of time, use the `maxItemsPerPeriod`
+option. Optionally, specify a time period using the `period` option (default is 1 second).
+For example, the following limits the number of concurrent
+requests to 5 and ensures that the rate never exceeds 75 requests per minute.
+
 **Example**
 
 ```typescript
-// Limit concurrency to at most 3
-const limiter = rateLimit(3)
+const limiter = rateLimit(5, { maxItemsPerPeriod: 75, period: ms('1m') })
 
 for (const url of urls) {
     // Will wait for one promise to finish if limit is reached

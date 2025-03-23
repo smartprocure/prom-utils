@@ -60,6 +60,13 @@ export interface WaitOptions {
   checkFrequency?: number
 }
 
+export type SlidingWindow = { timestamp: number; numUnits: number }[]
+
+export type GetTimeframe = (
+  slidingWindow: SlidingWindow,
+  options: Required<ThroughputLimiterOptions>
+) => number
+
 export interface ThroughputLimiterOptions {
   /**
    * The period of time in ms to track the rate. Set to 60_000 for 1 minute.
@@ -78,13 +85,12 @@ export interface ThroughputLimiterOptions {
    */
   maxWindowLength?: number
   /**
-   * Number of ms to sleep before checking the rate again.
-   * Defaults to 100.
-   */
-  sleepTime?: number
-  /**
    * Expire throttle invocations after this many ms.
    * Defaults to Infinity.
    */
   expireAfter?: number
+  /**
+   * The timeframe to use for calculating the rate.
+   */
+  getTimeframe?: GetTimeframe
 }

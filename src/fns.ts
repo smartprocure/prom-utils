@@ -5,9 +5,11 @@ import { size } from 'obj-walker'
 
 import {
   Deferred,
+  GetTimeframe,
   QueueOptions,
   QueueResult,
   RateLimitOptions,
+  SlidingWindow,
   ThroughputLimiterOptions,
   WaitOptions,
 } from './types'
@@ -32,8 +34,14 @@ export const TimeoutError = makeError('TimeoutError')
  * Wrapping `rateLimit` method calls in a try/catch will not work. You can
  * set `limit` to Infinity to disregard the limit.
  *
+ * To limit the promises for a given period of time, use the `maxItemsPerPeriod`
+ * option. Optionally, specify a time period using the `period` option (default is 1 second).
+ * For example, the following limits the number of concurrent requests to 5
+ * and ensures that the rate never exceeds 75 requests per minute.
+ *
+ * @example
  * ```typescript
- * const limiter = rateLimit(3)
+ * const limiter = rateLimit(5, { maxItemsPerPeriod: 75, period: ms('1m') })
  * for (const url of urls) {
  *   // Will wait for one promise to finish if limit is reached
  *   await limiter.add(fetch(url))
@@ -51,8 +59,19 @@ export const rateLimit = <T = unknown>(
   debugRL('init - maxItemsPerPeriod %d', maxItemsPerPeriod)
   // Set of promises
   const set = new Set<Promise<T>>()
+  // Default period to 1 second
+  const period = options.period || 1000
   // Items/period limiter
-  const itemsLimiter = throughputLimiter(maxItemsPerPeriod ?? Infinity, options)
+  const itemsLimiter = throughputLimiter(maxItemsPerPeriod ?? Infinity, {
+    // Allow for high throughput at the start of the period
+    getTimeframe: getTimeframeUsingPeriod,
+    // Expire items after the period
+    expireAfter: period,
+    period,
+    // Ensure that the sliding window accurately captures all items for the period
+    maxWindowLength: maxItemsPerPeriod,
+    ...options,
+  })
   /**
    * Add a promise. Returns immediately if limit has not been met. Waits for one
    * promise to resolve if limit is met. Waits for throughput to drop below
@@ -113,6 +132,52 @@ export const rateLimit = <T = unknown>(
 }
 
 /**
+ * Return the elapsed time since the first entry in the sliding window.
+ * This evenly distributes the rate over the period.
+ */
+export const getTimeframeUsingCurrentTime: GetTimeframe = (slidingWindow) => {
+  const { timestamp } = slidingWindow[0]
+  return new Date().getTime() - timestamp
+}
+
+/**
+ * Return the elapsed time since the first entry in the sliding window or the period,
+ * whichever is greater. This allows for high throughput at the start of the period.
+ */
+export const getTimeframeUsingPeriod: GetTimeframe = (
+  slidingWindow,
+  { period }
+) => {
+  const { timestamp } = slidingWindow[0]
+  const elapsedSinceStartOfWindow = new Date().getTime() - timestamp
+  return Math.max(period, elapsedSinceStartOfWindow)
+}
+
+const getTLDefaults = (
+  maxUnitsPerPeriod: number,
+  options: ThroughputLimiterOptions
+) => {
+  const _options = {
+    period: 1000,
+    minWindowLength: 1,
+    expireAfter: Infinity,
+    getTimeframe: getTimeframeUsingCurrentTime,
+    ...options,
+  }
+  const minWindowLength = _options.minWindowLength
+  const _maxWindowLength = options.maxWindowLength || 3
+  const maxWindowLength =
+    _maxWindowLength < minWindowLength ? minWindowLength : _maxWindowLength
+  return {
+    ..._options,
+    maxWindowLength,
+    // If the period is 1000 ms and maxUnitsPeriod is 10, the sleep time
+    // will be 100 ms. If maxUnitsPeriod is Infinity, the sleep time will be 1 ms.
+    sleepTime: Math.max(_options.period / maxUnitsPerPeriod, 1),
+  }
+}
+
+/**
  *
  * Limit throughput by sleeping until the rate (units/period)
  * is less than or equal to `maxUnitsPerPeriod`. Units and period are
@@ -134,20 +199,22 @@ export const throughputLimiter = (
   maxUnitsPerPeriod: number,
   options: ThroughputLimiterOptions = {}
 ) => {
-  const slidingWindow: { timestamp: number; numUnits: number }[] = []
-  const period = options.period || 1000
-  let minWindowLength = options.minWindowLength || 1
-  const _maxWindowLength = options.maxWindowLength || 3
-  const maxWindowLength =
-    _maxWindowLength < minWindowLength ? minWindowLength : _maxWindowLength
-  const sleepTime = options.sleepTime || 100
-  const expireAfter = options.expireAfter || Infinity
+  const slidingWindow: SlidingWindow = []
+  const optionsWithDefaults = getTLDefaults(maxUnitsPerPeriod, options)
+  const {
+    period,
+    minWindowLength,
+    maxWindowLength,
+    sleepTime,
+    expireAfter,
+    getTimeframe,
+  } = optionsWithDefaults
   debugTL('init - maxUnitsPerPeriod %d', maxUnitsPerPeriod)
-  debugTL('init - period %d', period)
+  debugTL('init - period %d ms', period)
   debugTL('init - minWindowLength %d', minWindowLength)
   debugTL('init - maxWindowLength %d', maxWindowLength)
-  debugTL('init - sleepTime %d', sleepTime)
-  debugTL('init - expireAfter %d', expireAfter)
+  debugTL('init - sleepTime %d ms', sleepTime)
+  debugTL('init - expireAfter %d ms', expireAfter)
 
   if (maxWindowLength === Infinity && expireAfter === Infinity) {
     throw new OptionsError(
@@ -164,10 +231,11 @@ export const throughputLimiter = (
   const getCurrentRate = () => {
     debugTL('getCurrentRate called')
     if (slidingWindow.length >= minWindowLength) {
-      const { timestamp } = slidingWindow[0]
       const numUnits = sumBy(slidingWindow, 'numUnits')
+      const timeframe = getTimeframe(slidingWindow, optionsWithDefaults)
       debugTL('total units %d', numUnits)
-      const rate = numUnits / ((new Date().getTime() - timestamp) / period)
+      debugTL('timeframe %d ms', timeframe)
+      const rate = numUnits / (timeframe / period)
       debugTL('current rate %d units/period', rate)
       return rate
     }
@@ -191,7 +259,7 @@ export const throughputLimiter = (
     let throttleTime = 0
     // Sleep if the current rate is above the max allowed. Repeat
     // until the rate has dropped sufficiently.
-    while (getCurrentRate() > maxUnitsPerPeriod) {
+    while (getCurrentRate() >= maxUnitsPerPeriod) {
       debugTL('sleeping for %d ms', sleepTime)
       await sleep(sleepTime)
       throttleTime += sleepTime
@@ -235,10 +303,6 @@ export const throughputLimiter = (
    * the number of units to the sliding window and then throttle.
    */
   const appendAndThrottle = async (numUnits: number) => {
-    // We need at least two invocations to calculate a rate
-    if (minWindowLength < 2) {
-      minWindowLength = 2
-    }
     append(numUnits)
     await throttle()
   }
