@@ -257,7 +257,7 @@ export const throughputLimiter = (
       return
     }
     let throttleTime = 0
-    // Sleep if the current rate is above the max allowed. Repeat
+    // Sleep if the current rate is at or above the max allowed. Repeat
     // until the rate has dropped sufficiently.
     while (getCurrentRate() >= maxUnitsPerPeriod) {
       debugTL('sleeping for %d ms', sleepTime)
