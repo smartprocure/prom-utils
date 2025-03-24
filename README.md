@@ -220,7 +220,7 @@ console.log(queue.getStats())
 
 ### throughputLimiter
 
-Limits throughput by sleeping until the rate (units/period) is less than or equal to the maximum limit. Units and period are intentionally abstract since they could represent requests/min, bytes/sec, etc.
+Limits throughput by sleeping until the rate (units/period) is less than the maximum limit. Units and period are intentionally abstract since they could represent requests/min, bytes/sec, etc.
 
 #### Parameters
 
