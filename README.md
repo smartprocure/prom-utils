@@ -131,7 +131,7 @@ Batches calls via a local queue. This can be used to accumulate values before wr
 - `fn: (arr: A[]) => B` - Function to call with batched items
 - `options: QueueOptions` - Configuration options
 
-#### QueueOptions
+#### Options
 
 ```typescript
 interface QueueOptions {
@@ -227,7 +227,7 @@ Limits throughput by sleeping until the rate (units/period) is less than or equa
 - `maxUnitsPerPeriod: number` - Maximum units allowed per period
 - `options: ThroughputLimiterOptions` - Configuration options
 
-#### ThroughputLimiterOptions
+#### Options
 
 ```typescript
 interface ThroughputLimiterOptions {
@@ -430,7 +430,7 @@ Waits until a predicate function returns true or a timeout expires.
 - `pred: () => Promise<boolean> | boolean` - Predicate function
 - `options: WaitOptions` - Configuration options
 
-#### WaitOptions
+#### Options
 
 ```typescript
 interface WaitOptions {
