@@ -252,9 +252,9 @@ export const throughputLimiter = (
    */
   const throttle = async () => {
     debugTL('throttle called')
-    // Skip check if maxUnitsPerSec is Infinity
+    // Skip check if maxUnitsPerPeriod is Infinity
     if (maxUnitsPerPeriod === Infinity) {
-      debugTL('exiting throttle - maxUnitsPerSec is Infinity')
+      debugTL('exiting throttle - maxUnitsPerPeriod is Infinity')
       return
     }
     let throttleTime = 0

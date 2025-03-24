@@ -118,7 +118,7 @@ for example.
 const limiter = throughputLimiter(1000)
 
 for (const batch of batches) {
-    // Will wait until the rate is <= `maxUnitsPerSec`
+    // Will wait until the rate is <= `maxUnitsPerPeriod`
     await limiter.throttleAndAppend(batch.length)
     console.log('Items/sec %d', limiter.getCurrentRate())
 }
