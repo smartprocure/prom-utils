@@ -150,7 +150,9 @@ export interface ThroughputLimiterOptions {
    */
   expireAfter?: number
   /**
-   * The timeframe to use for calculating the rate.
+   * The timeframe to use for calculating the rate. There are two functions
+   * provided: `getTimeframeUsingCurrentTime` and `getTimeframeUsingPeriod`.
+   * The default is `getTimeframeUsingCurrentTime`.
    */
   getTimeframe?: GetTimeframe
 }

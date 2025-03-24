@@ -135,7 +135,7 @@ export const rateLimit = <T = unknown>(
  * Return the elapsed time since the first entry in the sliding window.
  * This evenly distributes the rate over the period.
  */
-export const getTimeframeUsingCurrentTime: GetTimeframe = (slidingWindow) => {
+export const getTimeframeUsingElapsed: GetTimeframe = (slidingWindow) => {
   const { timestamp } = slidingWindow[0]
   return new Date().getTime() - timestamp
 }
@@ -161,7 +161,7 @@ const getTLDefaults = (
     period: 1000,
     minWindowLength: 1,
     expireAfter: Infinity,
-    getTimeframe: getTimeframeUsingCurrentTime,
+    getTimeframe: getTimeframeUsingElapsed,
     ...options,
   }
   const minWindowLength = _options.minWindowLength
