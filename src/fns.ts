@@ -444,8 +444,9 @@ export function batchQueue<A, B>(
   }
 
   /**
-   * Returns the current items/sec and bytes/sec values.
-   * These will be zero if the corresponding option is not enabled.
+   * Get stats for the two limiters. These will be zero if the
+   * corresponding option is not enabled.
+   * @returns The current items/sec and bytes/sec values.
    */
   const getStats = () => ({
     itemsPerSec: itemsLimiter.getCurrentRate(),
@@ -546,8 +547,7 @@ export const pausable = (timeout?: number) => {
 /**
  * Call heartbeatFn every interval until promise resolves or rejects.
  * `interval` defaults to 1000.
- *
- * Returns the value of the resolved promise.
+ * @returns The value of the resolved promise.
  */
 export const pacemaker = async <T>(
   heartbeatFn: () => void,
@@ -566,10 +566,9 @@ export const pacemaker = async <T>(
 
 /**
  * Wait until the predicate returns truthy or the timeout expires.
- * Returns a promise that resolves or rejects, accordingly.
- *
  * Will not hang like other implementations found on NPM.
  * Inspired by https://www.npmjs.com/package/async-wait-until
+ * @returns A promise that resolves or rejects, accordingly.
  *
  * @example
  * ```typescript
