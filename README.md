@@ -214,7 +214,7 @@ const result = await pacemaker(heartbeatFn, someProm)
 ## waitUntil
 
 Wait until the predicate returns truthy or the timeout expires.
-Returns a promise.
+Returns a promise that resolves or rejects, accordingly.
 
 **Example**
 

@@ -566,7 +566,7 @@ export const pacemaker = async <T>(
 
 /**
  * Wait until the predicate returns truthy or the timeout expires.
- * Returns a promise.
+ * Returns a promise that resolves or rejects, accordingly.
  *
  * Will not hang like other implementations found on NPM.
  * Inspired by https://www.npmjs.com/package/async-wait-until
