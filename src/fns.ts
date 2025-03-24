@@ -97,7 +97,7 @@ export const rateLimit = <T = unknown>(
       }
     )
     if (maxItemsPerPeriod) {
-      // Wait for the throughput to drop below thresholds for items/period
+      // Wait for the throughput to drop below threshold for items/period
       await itemsLimiter.appendAndThrottle(1)
     }
     // Limit was reached
@@ -224,6 +224,23 @@ export const throughputLimiter = (
   }
 
   /**
+   * Remove expired invocations from the sliding window.
+   */
+  const cleanupExpired = () => {
+    debugTL('cleanupExpired called')
+    // Remove expired invocations
+    if (expireAfter !== Infinity) {
+      // Get the current time
+      const now = new Date().getTime()
+      // Remove invocations that are older than expireAfter
+      while (now - slidingWindow[0]?.timestamp > expireAfter) {
+        const shifted = slidingWindow.shift()
+        debugTL('removed expired: %o', shifted)
+      }
+    }
+  }
+
+  /**
    * Get the current rate (units/period). The rate is determined by averaging the
    * values in the sliding window where the elapsed time is determined by
    * comparing the first entry in the window to the current time.
@@ -233,6 +250,9 @@ export const throughputLimiter = (
    */
   const getCurrentRate = () => {
     debugTL('getCurrentRate called')
+    // Remove expired invocations
+    cleanupExpired()
+    // Calculate the rate
     if (slidingWindow.length >= minWindowLength) {
       const numUnits = sumBy(slidingWindow, 'numUnits')
       const timeframe = getTimeframe(slidingWindow, optionsWithDefaults)
@@ -280,14 +300,6 @@ export const throughputLimiter = (
     if (slidingWindow.length > maxWindowLength) {
       const shifted = slidingWindow.shift()
       debugTL('removed due to length: %o', shifted)
-    }
-    // Remove expired invocations
-    if (expireAfter !== Infinity) {
-      // Remove invocations that are older than expireAfter
-      while (now - slidingWindow[0]?.timestamp > expireAfter) {
-        const shifted = slidingWindow.shift()
-        debugTL('removed expired: %o', shifted)
-      }
     }
     debugTL('slidingWindow: %o', slidingWindow)
   }

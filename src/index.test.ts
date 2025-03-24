@@ -564,8 +564,8 @@ describe('throughputLimiter', () => {
     await limiter.throttleAndAppend(5)
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
-    expect(elapsed).toBeGreaterThanOrEqual(200)
-    expect(elapsed).toBeLessThan(300)
+    expect(elapsed).toBeGreaterThanOrEqual(100)
+    expect(elapsed).toBeLessThan(150)
   })
   test('should throw if both maxWindowLength and expireAfter are Inifinity', async () => {
     expect(() => {
