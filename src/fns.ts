@@ -190,7 +190,7 @@ const getTLDefaults = (
  * const limiter = throughputLimiter(1000)
  *
  * for(const batch of batches) {
- *   // Will wait until the rate is <= `maxUnitsPerPeriod`
+ *   // Will wait until the rate is < `maxUnitsPerPeriod`
  *   await limiter.throttleAndAppend(batch.length)
  *   console.log('Items/sec %d', limiter.getCurrentRate())
  * }
