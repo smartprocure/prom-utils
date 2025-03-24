@@ -66,18 +66,17 @@ interface ThroughputLimiterOptions {
     minWindowLength?: number
     /**
      * The maximum number of throttle invocations to hold in memory.
-     * Should be 1 or more. Defaults to 3.
+     * Should be 1 or more. Defaults to maxItemsPerPeriod.
      */
     maxWindowLength?: number
     /**
      * Expire throttle invocations after this many ms.
-     * Defaults to Infinity.
+     * Defaults to the period.
      */
     expireAfter?: number
     /**
      * The timeframe to use for calculating the rate.
-     * Two built-in options: getTimeframeUsingElapsed or getTimeframeUsingPeriod.
-     * Defaults to getTimeframeUsingElapsed.
+     * Defaults to getTimeframeUsingPeriod.
      */
     getTimeframe?: GetTimeframe
 }
