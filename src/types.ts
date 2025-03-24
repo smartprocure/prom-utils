@@ -33,6 +33,14 @@ export interface RateLimitOptions {
   maxItemsPerPeriod?: number
 }
 
+export interface AddOptions {
+  /**
+   * Bypass async waiting. This is useful when the item being added is the
+   * last item and you are limiting throughput.
+   */
+  bypass?: boolean
+}
+
 export interface QueueOptions {
   /** Wait for the batch to reach this number of elements before flushing the queue. */
   batchSize?: number

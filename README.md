@@ -88,10 +88,11 @@ interface ThroughputLimiterOptions {
 ```typescript
 {
     /**
-     * Add a promise. Returns immediately if limit has not been met.
-     * Waits for one promise to resolve if limit is met.
+     * Add a promise. Waits for one promise to resolve if limit is met or for
+     * throughput to drop below threshold if `maxItemsPerPeriod` is set.
+     * Optionally, set `bypass` to true to bypass async waiting.
      */
-    add: (prom: Promise<T>) => Promise<void>
+    add: (prom: Promise<T>, options?: AddOptions) => Promise<void>
     /**
      * Wait for all promises to resolve
      */

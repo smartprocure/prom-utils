@@ -122,6 +122,19 @@ describe('rateLimit', () => {
     expect(elapsed).toBeGreaterThan(100)
     expect(elapsed).toBeLessThan(150)
   })
+  test('should not wait to end of period when bypass is set to true', async () => {
+    expect.assertions(1)
+    // 3 units per 10 ms
+    const limiter = rateLimit(3, { maxItemsPerPeriod: 3, period: 1000 })
+    const startTime = new Date().getTime()
+    await limiter.add(setTimeout(100))
+    await limiter.add(setTimeout(100))
+    await limiter.add(setTimeout(100), { bypass: true })
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeLessThan(150)
+  })
 })
 
 describe('batchQueue', () => {

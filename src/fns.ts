@@ -4,6 +4,7 @@ import makeError from 'make-error'
 import { size } from 'obj-walker'
 
 import {
+  AddOptions,
   Deferred,
   GetTimeframe,
   QueueOptions,
@@ -73,11 +74,11 @@ export const rateLimit = <T = unknown>(
     ...options,
   })
   /**
-   * Add a promise. Returns immediately if limit has not been met. Waits for one
-   * promise to resolve if limit is met. Waits for throughput to drop below
-   * threshold if `maxItemsPerPeriod` is set.
+   * Add a promise. Waits for one promise to resolve if limit is met or for
+   * throughput to drop below threshold if `maxItemsPerPeriod` is set.
+   * Optionally, set `bypass` to true to bypass async waiting.
    */
-  const add = async (prom: Promise<T>) => {
+  const add = async (prom: Promise<T>, options: AddOptions = {}) => {
     // Add to set
     set.add(prom)
     debugRL('add called. set size: %d', set.size)
@@ -96,6 +97,12 @@ export const rateLimit = <T = unknown>(
         set.delete(prom)
       }
     )
+
+    // Bypass async waiting
+    if (options.bypass) {
+      return
+    }
+    // Apply throughput limiter
     if (maxItemsPerPeriod) {
       // Wait for the throughput to drop below threshold for items/period
       await itemsLimiter.appendAndThrottle(1)
