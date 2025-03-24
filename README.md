@@ -108,7 +108,7 @@ export interface QueueOptions {
 
 Limit throughput by sleeping until the rate (units/period)
 is less than or equal to `maxUnitsPerPeriod`. Units and period are
-intentionally abstract since it could represent records/sec or bytes/min,
+intentionally abstract since it could represent requests/min or bytes/sec,
 for example.
 
 **Example**
@@ -119,7 +119,7 @@ const limiter = throughputLimiter(1000)
 
 for (const batch of batches) {
     // Will wait until the rate is <= `maxUnitsPerSec`
-    await limiter.throttle(batch.length)
+    await limiter.throttleAndAppend(batch.length)
     console.log('Items/sec %d', limiter.getCurrentRate())
 }
 ```
@@ -145,15 +145,14 @@ export interface ThroughputLimiterOptions {
    */
   maxWindowLength?: number
   /**
-   * Number of ms to sleep before checking the rate again.
-   * Defaults to 100.
-   */
-  sleepTime?: number
-  /**
    * Expire throttle invocations after this many ms.
    * Defaults to Infinity.
    */
   expireAfter?: number
+  /**
+   * The timeframe to use for calculating the rate.
+   */
+  getTimeframe?: GetTimeframe
 }
 ```
 

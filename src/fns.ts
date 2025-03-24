@@ -181,7 +181,7 @@ const getTLDefaults = (
  *
  * Limit throughput by sleeping until the rate (units/period)
  * is less than or equal to `maxUnitsPerPeriod`. Units and period are
- * intentionally abstract since it could represent records/sec or bytes/min,
+ * intentionally abstract since it could represent requests/min or bytes/sec,
  * for example.
  *
  * Example:
