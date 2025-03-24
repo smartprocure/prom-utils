@@ -254,6 +254,8 @@ interface ThroughputLimiterOptions {
     expireAfter?: number
     /**
      * The timeframe to use for calculating the rate.
+     * Two built-in options: getTimeframeUsingElapsed or getTimeframeUsingPeriod.
+     * Defaults to getTimeframeUsingElapsed.
      */
     getTimeframe?: GetTimeframe
 }
