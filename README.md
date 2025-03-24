@@ -220,9 +220,7 @@ Returns a promise that resolves or rejects, accordingly.
 
 ```typescript
 let isTruthy = false
-setTimeout(() => {
-    isTruthy = true
-}, 250)
+setTimeout(() => { isTruthy = true }, 250)
 await waitUntil(() => isTruthy)
 ```
 

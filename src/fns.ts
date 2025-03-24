@@ -570,6 +570,13 @@ export const pacemaker = async <T>(
  *
  * Will not hang like other implementations found on NPM.
  * Inspired by https://www.npmjs.com/package/async-wait-until
+ *
+ * @example
+ * ```typescript
+ * let isTruthy = false
+ * setTimeout(() => { isTruthy = true }, 250)
+ * await waitUntil(() => isTruthy)
+ * ```
  */
 export const waitUntil = (
   pred: () => Promise<boolean> | boolean,
