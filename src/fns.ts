@@ -184,13 +184,14 @@ const getTLDefaults = (
  * intentionally abstract since it could represent requests/min or bytes/sec,
  * for example.
  *
- * Example:
+ * @example
  * ```typescript
+ * // Limit to at most 1000 items/sec
  * const limiter = throughputLimiter(1000)
  *
  * for(const batch of batches) {
  *   // Will wait until the rate is <= `maxUnitsPerPeriod`
- *   await limiter.throttle(batch.length)
+ *   await limiter.throttleAndAppend(batch.length)
  *   console.log('Items/sec %d', limiter.getCurrentRate())
  * }
  * ```
