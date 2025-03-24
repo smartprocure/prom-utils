@@ -18,7 +18,9 @@
     "lint": "eslint src/**"
   },
   "keywords": [
+    "async",
     "promise",
+    "delay",
     "rate",
     "limit",
     "limiter",
