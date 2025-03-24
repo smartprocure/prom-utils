@@ -49,7 +49,8 @@ interface RateLimitOptions {
 }
 ```
 
-Since `rateLimit` internally uses `throughputLimiter`, it also accepts all options from `ThroughputLimiterOptions`:
+Since `rateLimit` internally uses `throughputLimiter`, it also accepts all options from `ThroughputLimiterOptions`.
+Below are the options for `ThroughputLimiterOptions` and the defaults used for `rateLimit`.
 
 ```typescript
 interface ThroughputLimiterOptions {
