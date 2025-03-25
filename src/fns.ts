@@ -299,7 +299,7 @@ export const throughputLimiter = (
 
   /**
    * Append the number of units to the sliding window. Throttle
-   * must be called separately to ensure that the rate is below
+   * must be called separately to ensure that the rate stays below
    * `maxUnitsPerPeriod`.
    */
   const append = (numUnits: number) => {
