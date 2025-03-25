@@ -148,6 +148,12 @@ export const getTimeframeUsingElapsed: GetTimeframe = (slidingWindow) => {
 }
 
 /**
+ * Clamp a value between a minimum and maximum.
+ */
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value))
+
+/**
  * Return the elapsed time since the first entry in the sliding window or the period,
  * whichever is greater. This allows for high throughput at the start of the period.
  */
@@ -173,14 +179,14 @@ const getTLDefaults = (
   }
   const minWindowLength = _options.minWindowLength
   const _maxWindowLength = options.maxWindowLength || 3
+  // Ensure that maxWindowLength is at least minWindowLength
   const maxWindowLength =
     _maxWindowLength < minWindowLength ? minWindowLength : _maxWindowLength
   return {
     ..._options,
     maxWindowLength,
-    // If the period is 1000 ms and maxUnitsPeriod is 10, the sleep time
-    // will be 100 ms. If maxUnitsPeriod is Infinity, the sleep time will be 1 ms.
-    sleepTime: Math.max(_options.period / maxUnitsPerPeriod, 1),
+    // Ensure the sleep time is granular enough but between 1 and 500 ms
+    sleepTime: clamp(_options.period / maxUnitsPerPeriod, 1, 500)
   }
 }
 
