@@ -1,5 +1,5 @@
 import _debug from 'debug'
-import { sumBy, clamp } from 'lodash'
+import { clamp, sumBy } from 'lodash'
 import makeError from 'make-error'
 import { size } from 'obj-walker'
 
@@ -297,6 +297,11 @@ export const throughputLimiter = (
     debugTL('throttled for %d ms', throttleTime)
   }
 
+  /**
+   * Append the number of units to the sliding window. Throttle
+   * must be called separately to ensure that the rate is below
+   * `maxUnitsPerPeriod`.
+   */
   const append = (numUnits: number) => {
     debugTL('append called with %d unit(s)', numUnits)
     // Get the current time
