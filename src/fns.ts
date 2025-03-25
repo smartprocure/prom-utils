@@ -1,5 +1,5 @@
 import _debug from 'debug'
-import { sumBy } from 'lodash'
+import { sumBy, clamp } from 'lodash'
 import makeError from 'make-error'
 import { size } from 'obj-walker'
 
@@ -146,12 +146,6 @@ export const getTimeframeUsingElapsed: GetTimeframe = (slidingWindow) => {
   const { timestamp } = slidingWindow[0]
   return new Date().getTime() - timestamp
 }
-
-/**
- * Clamp a value between a minimum and maximum.
- */
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value))
 
 /**
  * Return the elapsed time since the first entry in the sliding window or the period,
