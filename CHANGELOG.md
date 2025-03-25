@@ -1,3 +1,7 @@
+# 0.16.0
+
+- Dependencies updated.
+
 # 0.15.0
 
 - `rateLimit`
