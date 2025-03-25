@@ -65,6 +65,7 @@
     "@types/lodash": "^4.17.16",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@vitest/ui": "^3.0.9",
+    "globals": "^16.0.0",
     "prettier": "^3.5.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.9"
