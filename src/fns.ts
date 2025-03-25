@@ -186,7 +186,7 @@ const getTLDefaults = (
     ..._options,
     maxWindowLength,
     // Ensure the sleep time is granular enough but between 1 and 500 ms
-    sleepTime: clamp(_options.period / maxUnitsPerPeriod, 1, 500)
+    sleepTime: clamp(_options.period / maxUnitsPerPeriod, 1, 500),
   }
 }
 
@@ -293,8 +293,8 @@ export const throughputLimiter = (
       return
     }
     let throttleTime = 0
-    // Sleep if the current rate is at or above the max allowed. Repeat
-    // until the rate has dropped sufficiently.
+    // Check the rate, sleep, and repeat until the rate is less than
+    // maxUnitsPerPeriod
     while (getCurrentRate() >= maxUnitsPerPeriod) {
       debugTL('sleeping for %d ms', sleepTime)
       await sleep(sleepTime)
