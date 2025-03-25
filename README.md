@@ -34,7 +34,7 @@ Limits the concurrency of promises. This can be used to control how many request
 #### Parameters
 
 - `limit: number` - Maximum number of concurrent promises (set to `Infinity` to disable)
-- `options: RateLimitOptions` - Configuration options
+- `options: RateLimitOptions & ThroughputLimiterOptions` - Configuration options
 
 #### Options
 
