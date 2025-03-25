@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest'
 import {
   batchQueue,
   defer,
+  OptionsError,
   pacemaker,
   pausable,
   raceTimeout,
@@ -32,6 +33,7 @@ describe('rateLimit', () => {
     await limiter.add(setTimeout(1000))
     await limiter.add(setTimeout(1000))
     await limiter.add(setTimeout(1000))
+    await limiter.finish()
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThan(900)
@@ -71,6 +73,7 @@ describe('rateLimit', () => {
       })
     )
     await limiter.add(setTimeout(10))
+    await limiter.finish()
     await setTimeout(20)
     // Check that the rejected promise was removed from the set.
     expect(limiter.length).toBe(0)
@@ -88,6 +91,49 @@ describe('rateLimit', () => {
       // Call finish before reaching the limit of 3
       await limiter.finish()
     }).not.toThrow('rejectedPromise')
+  })
+  test('should allow at most maxItemsPerPeriod if option is set', async () => {
+    expect.assertions(1)
+    // 1 unit per sec
+    const limiter = rateLimit(3, { maxItemsPerPeriod: 1 })
+    const startTime = new Date().getTime()
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(3000)
+  })
+  test('should handle infinite concurrency while limiting via maxItemsPerPeriod', async () => {
+    expect.assertions(2)
+    // Simulate an API that allows 2 requests per 100 ms
+    const limiter = rateLimit(Infinity, {
+      maxItemsPerPeriod: 2,
+      period: 100,
+    })
+    const startTime = new Date().getTime()
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThan(100)
+    expect(elapsed).toBeLessThan(150)
+  })
+  test('should not wait to end of period when bypass is set to true', async () => {
+    expect.assertions(1)
+    // 3 units per 10 ms
+    const limiter = rateLimit(3, { maxItemsPerPeriod: 3, period: 1000 })
+    const startTime = new Date().getTime()
+    await limiter.add(setTimeout(100))
+    await limiter.add(setTimeout(100))
+    await limiter.add(setTimeout(100), { bypass: true })
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeLessThan(150)
   })
 })
 
@@ -437,50 +483,110 @@ describe('waitUntil', () => {
 })
 
 describe('throughputLimiter', () => {
-  test('first call to throttle completes without delay', async () => {
+  test('call to throttle with empty sliding window completes without delay', async () => {
+    expect.assertions(2)
     const limiter = throughputLimiter(100)
     const startTime = new Date().getTime()
     expect(limiter.getCurrentRate()).toBe(0)
-    await limiter.throttle(1000)
+    await limiter.throttle()
     const endTime = new Date().getTime()
     expect(endTime - startTime).toBeLessThan(5)
   })
-  test('second call to throttle completes without delay if maxUnitsPerSec is Infinity', async () => {
+  test('second call to throttle completes without delay if maxUnitsPerTime is Infinity', async () => {
+    expect.assertions(1)
     const limiter = throughputLimiter(Infinity)
     const startTime = new Date().getTime()
-    await limiter.throttle(1000)
-    await limiter.throttle(1000)
+    await limiter.throttle()
+    limiter.append(1000)
+    await limiter.throttle()
     const endTime = new Date().getTime()
     expect(endTime - startTime).toBeLessThan(5)
   })
   test('throughput should be throttled', async () => {
+    expect.assertions(2)
     const limiter = throughputLimiter(500)
     const startTime = new Date().getTime()
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     await setTimeout(100)
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     await setTimeout(100)
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     await setTimeout(100)
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(1000)
     expect(limiter.getCurrentRate()).toBeLessThan(1000)
   })
-  test('options should work as expected', async () => {
-    const limiter = throughputLimiter(500, { windowLength: 2, sleepTime: 200 })
+  test('minWindowLength option should work as expected', async () => {
+    expect.assertions(1)
+    const limiter = throughputLimiter(4, { minWindowLength: 4 })
     const startTime = new Date().getTime()
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(1)
+    await limiter.throttleAndAppend(1)
+    await limiter.throttleAndAppend(1)
+    await limiter.throttleAndAppend(1)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeLessThan(5)
+  })
+  test('maxWindowLength option should work as expected', async () => {
+    expect.assertions(1)
+    const limiter = throughputLimiter(500, {
+      maxWindowLength: 2,
+    })
+    const startTime = new Date().getTime()
+    await limiter.throttleAndAppend(250)
     await setTimeout(100)
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     await setTimeout(100)
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     await setTimeout(100)
-    await limiter.throttle(250)
+    await limiter.throttleAndAppend(250)
     const endTime = new Date().getTime()
     const elapsed = endTime - startTime
     expect(elapsed).toBeGreaterThanOrEqual(1500)
+  })
+  test('period option should work as expected', async () => {
+    expect.assertions(2)
+    // 5 units per 100 ms
+    const limiter = throughputLimiter(5, { period: 100 })
+    const startTime = new Date().getTime()
+    await limiter.throttleAndAppend(5)
+    await setTimeout(100)
+    await limiter.throttleAndAppend(5)
+    await setTimeout(100)
+    await limiter.throttleAndAppend(5)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(200)
+    expect(elapsed).toBeLessThan(250)
+  })
+  test('expireAfter option should work as expected', async () => {
+    expect.assertions(2)
+    // 5 units per 100 ms, with sliding window entries resetting after 50 ms
+    const limiter = throughputLimiter(5, {
+      period: 100,
+      expireAfter: 50,
+    })
+    const startTime = new Date().getTime()
+    await limiter.throttleAndAppend(5)
+    await setTimeout(50)
+    await limiter.throttleAndAppend(5)
+    await setTimeout(50)
+    await limiter.throttleAndAppend(5)
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    expect(elapsed).toBeGreaterThanOrEqual(100)
+    expect(elapsed).toBeLessThan(150)
+  })
+  test('should throw if both maxWindowLength and expireAfter are Inifinity', async () => {
+    expect(() => {
+      throughputLimiter(5, {
+        maxWindowLength: Infinity,
+        expireAfter: Infinity,
+      })
+    }).toThrow(OptionsError)
   })
 })
 

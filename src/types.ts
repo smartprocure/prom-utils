@@ -26,6 +26,21 @@ export type QueueResult<A, B> = {
   get length(): number
 }
 
+export interface RateLimitOptions {
+  /**
+   * Maximum throughput allowed (items/period). Defaults to items/sec.
+   */
+  maxItemsPerPeriod?: number
+}
+
+export interface AddOptions {
+  /**
+   * Bypass async waiting. This is useful when the item being added is the
+   * last item and you are limiting throughput.
+   */
+  bypass?: boolean
+}
+
 export interface QueueOptions {
   /** Wait for the batch to reach this number of elements before flushing the queue. */
   batchSize?: number
@@ -53,9 +68,39 @@ export interface WaitOptions {
   checkFrequency?: number
 }
 
+export type SlidingWindow = { timestamp: number; numUnits: number }[]
+
+export type GetTimeframe = (
+  slidingWindow: SlidingWindow,
+  options: Required<ThroughputLimiterOptions>
+) => number
+
 export interface ThroughputLimiterOptions {
-  /** The maximum number of throttle invocations to hold in memory. */
-  windowLength?: number
-  /** Number of ms to sleep before checking the rate again. Defaults to 100. */
-  sleepTime?: number
+  /**
+   * The period of time in ms to track the rate. Set to 60_000 for 1 minute.
+   * Defaults to 1000, which is units/sec.
+   */
+  period?: number
+  /**
+   * The minimum number of throttle invocations prior to checking the rate.
+   * Use this to allow for short bursts without throttling.
+   * Should be 1 or more. Defaults to 1.
+   */
+  minWindowLength?: number
+  /**
+   * The maximum number of throttle invocations to hold in memory.
+   * Should be 1 or more. Defaults to 3.
+   */
+  maxWindowLength?: number
+  /**
+   * Expire throttle invocations after this many ms.
+   * Defaults to Infinity.
+   */
+  expireAfter?: number
+  /**
+   * The timeframe to use for calculating the rate. There are two functions
+   * provided: `getTimeframeUsingElapsed` and `getTimeframeUsingPeriod`.
+   * The default is `getTimeframeUsingElapsed`.
+   */
+  getTimeframe?: GetTimeframe
 }

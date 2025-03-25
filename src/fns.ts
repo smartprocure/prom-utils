@@ -1,12 +1,16 @@
 import _debug from 'debug'
-import { sumBy } from 'lodash'
+import { sumBy, clamp } from 'lodash'
 import makeError from 'make-error'
 import { size } from 'obj-walker'
 
 import {
+  AddOptions,
   Deferred,
+  GetTimeframe,
   QueueOptions,
   QueueResult,
+  RateLimitOptions,
+  SlidingWindow,
   ThroughputLimiterOptions,
   WaitOptions,
 } from './types'
@@ -18,16 +22,27 @@ const debugPM = _debug('prom-utils:pacemaker')
 const debugWU = _debug('prom-utils:waitUntil')
 const debugP = _debug('prom-utils:pausable')
 
+// Error classes
+export const OptionsError = makeError('OptionsError')
+export const TimeoutError = makeError('TimeoutError')
+
 /**
  * Limit the concurrency of promises. This can be used to control
  * how many requests are made to a server, for example. Note:
  * exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
  * from being thrown in the case where the promise rejects before the limit is
  * reached. Therefore, you must handle exceptions on a per promise basis.
- * Wrapping `rateLimit` method calls in a try/catch will not work.
+ * Wrapping `rateLimit` method calls in a try/catch will not work. You can
+ * set `limit` to Infinity to disregard the limit.
  *
+ * To limit the promises for a given period of time, use the `maxItemsPerPeriod`
+ * option. Optionally, specify a time period using the `period` option (default is 1 second).
+ * For example, the following limits the number of concurrent requests to 5
+ * and ensures that the rate never exceeds 75 requests per minute.
+ *
+ * @example
  * ```typescript
- * const limiter = rateLimit(3)
+ * const limiter = rateLimit(5, { maxItemsPerPeriod: 75, period: ms('1m') })
  * for (const url of urls) {
  *   // Will wait for one promise to finish if limit is reached
  *   await limiter.add(fetch(url))
@@ -36,17 +51,37 @@ const debugP = _debug('prom-utils:pausable')
  * await limiter.finish()
  * ```
  */
-export const rateLimit = <T = unknown>(limit: number) => {
-  debugRL('limit: %d', limit)
+export const rateLimit = <T = unknown>(
+  limit: number,
+  options: RateLimitOptions & ThroughputLimiterOptions = {}
+) => {
+  const { maxItemsPerPeriod } = options
+  debugRL('init - limit %d', limit)
+  debugRL('init - maxItemsPerPeriod %d', maxItemsPerPeriod)
+  // Set of promises
   const set = new Set<Promise<T>>()
+  // Default period to 1 second
+  const period = options.period || 1000
+  // Items/period limiter
+  const itemsLimiter = throughputLimiter(maxItemsPerPeriod ?? Infinity, {
+    // Allow for high throughput at the start of the period
+    getTimeframe: getTimeframeUsingPeriod,
+    // Expire items after the period
+    expireAfter: period,
+    period,
+    // Ensure that the sliding window accurately captures all items for the period
+    maxWindowLength: maxItemsPerPeriod,
+    ...options,
+  })
   /**
-   * Add a promise. Returns immediately if limit has not been
-   * met. Waits for one promise to resolve if limit is met.
+   * Add a promise. Waits for one promise to resolve if limit is met or for
+   * throughput to drop below threshold if `maxItemsPerPeriod` is set.
+   * Optionally, set `bypass` to true to bypass async waiting.
    */
-  const add = async (prom: Promise<T>) => {
+  const add = async (prom: Promise<T>, options: AddOptions = {}) => {
     // Add to set
     set.add(prom)
-    debugRL('set size: %d', set.size)
+    debugRL('add called. set size: %d', set.size)
     // Create a child promise
     // See: https://runkit.com/dubiousdavid/handling-promise-rejections
     prom.then(
@@ -62,6 +97,16 @@ export const rateLimit = <T = unknown>(limit: number) => {
         set.delete(prom)
       }
     )
+
+    // Bypass async waiting
+    if (options.bypass) {
+      return
+    }
+    // Apply throughput limiter
+    if (maxItemsPerPeriod) {
+      // Wait for the throughput to drop below threshold for items/period
+      await itemsLimiter.appendAndThrottle(1)
+    }
     // Limit was reached
     if (set.size === limit) {
       debugRL('limit reached: %d', limit)
@@ -69,6 +114,12 @@ export const rateLimit = <T = unknown>(limit: number) => {
       await Promise.race(set)
     }
   }
+  /**
+   * items/period
+   */
+  const getStats = () => ({
+    itemsPerPeriod: itemsLimiter.getCurrentRate(),
+  })
   /**
    * Wait for all promises to resolve
    */
@@ -83,51 +134,139 @@ export const rateLimit = <T = unknown>(limit: number) => {
     get length() {
       return set.size
     },
+    getStats,
   }
 }
 
 /**
- * Limit throughput by sleeping until the rate (units/sec)
- * is less than or equal to `maxUnitsPerSec`. Units is intentionally
- * abstract since it could represent records/sec or bytes/sec, for
- * example.
+ * Return the elapsed time since the first entry in the sliding window.
+ * This evenly distributes the rate over the period.
+ */
+export const getTimeframeUsingElapsed: GetTimeframe = (slidingWindow) => {
+  const { timestamp } = slidingWindow[0]
+  return new Date().getTime() - timestamp
+}
+
+/**
+ * Return the elapsed time since the first entry in the sliding window or the period,
+ * whichever is greater. This allows for high throughput at the start of the period.
+ */
+export const getTimeframeUsingPeriod: GetTimeframe = (
+  slidingWindow,
+  { period }
+) => {
+  const { timestamp } = slidingWindow[0]
+  const elapsedSinceStartOfWindow = new Date().getTime() - timestamp
+  return Math.max(period, elapsedSinceStartOfWindow)
+}
+
+const getTLDefaults = (
+  maxUnitsPerPeriod: number,
+  options: ThroughputLimiterOptions
+) => {
+  const _options = {
+    period: 1000,
+    minWindowLength: 1,
+    expireAfter: Infinity,
+    getTimeframe: getTimeframeUsingElapsed,
+    ...options,
+  }
+  const minWindowLength = _options.minWindowLength
+  const _maxWindowLength = options.maxWindowLength || 3
+  // Ensure that maxWindowLength is at least minWindowLength
+  const maxWindowLength =
+    _maxWindowLength < minWindowLength ? minWindowLength : _maxWindowLength
+  return {
+    ..._options,
+    maxWindowLength,
+    // Ensure the sleep time is granular enough but between 1 and 500 ms
+    sleepTime: clamp(_options.period / maxUnitsPerPeriod, 1, 500),
+  }
+}
+
+/**
  *
- * Example:
+ * Limit throughput by sleeping until the rate (units/period)
+ * is less than `maxUnitsPerPeriod`. Units and period are
+ * intentionally abstract since it could represent requests/min or bytes/sec,
+ * for example.
+ *
+ * @example
  * ```typescript
+ * // Limit to at most 1000 items/sec
  * const limiter = throughputLimiter(1000)
  *
  * for(const batch of batches) {
- *   // Will wait until the rate is <= `maxUnitsPerSec`
- *   await limiter.throttle(batch.length)
+ *   // Will wait until the rate is < `maxUnitsPerPeriod`
+ *   await limiter.throttleAndAppend(batch.length)
  *   console.log('Items/sec %d', limiter.getCurrentRate())
  * }
  * ```
  */
 export const throughputLimiter = (
-  maxUnitsPerSec: number,
+  maxUnitsPerPeriod: number,
   options: ThroughputLimiterOptions = {}
 ) => {
-  const slidingWindow: { timestamp: number; numUnits: number }[] = []
-  const windowLength = options.windowLength || 3
-  const sleepTime = options.sleepTime || 100
-  debugTL('init - maxUnitsPerSec %d', maxUnitsPerSec)
-  debugTL('init - windowLength %d', windowLength)
-  debugTL('init - sleepTime %d', sleepTime)
+  const slidingWindow: SlidingWindow = []
+  const optionsWithDefaults = getTLDefaults(maxUnitsPerPeriod, options)
+  const {
+    period,
+    minWindowLength,
+    maxWindowLength,
+    sleepTime,
+    expireAfter,
+    getTimeframe,
+  } = optionsWithDefaults
+  debugTL('init - maxUnitsPerPeriod %d', maxUnitsPerPeriod)
+  debugTL('init - period %d ms', period)
+  debugTL('init - minWindowLength %d', minWindowLength)
+  debugTL('init - maxWindowLength %d', maxWindowLength)
+  debugTL('init - sleepTime %d ms', sleepTime)
+  debugTL('init - expireAfter %d ms', expireAfter)
+
+  if (maxWindowLength === Infinity && expireAfter === Infinity) {
+    throw new OptionsError(
+      'maxWindowLength and expireAfter cannot both be Infinity'
+    )
+  }
 
   /**
-   * Get the current rate (units/sec). The rate is determined by averaging the
+   * Remove expired invocations from the sliding window.
+   */
+  const cleanupExpired = () => {
+    debugTL('cleanupExpired called')
+    // Remove expired invocations
+    if (expireAfter !== Infinity) {
+      // Get the current time
+      const now = new Date().getTime()
+      // Remove invocations that are older than expireAfter
+      while (now - slidingWindow[0]?.timestamp > expireAfter) {
+        const shifted = slidingWindow.shift()
+        debugTL('removed expired: %o', shifted)
+      }
+    }
+  }
+
+  /**
+   * Get the current rate (units/period). The rate is determined by averaging the
    * values in the sliding window where the elapsed time is determined by
-   * comparing the first entry in the window to the current time. Returns 0
-   * if `throttle` has not been called.
+   * comparing the first entry in the window to the current time.
+   *
+   * @returns The current rate (units/period). Rate will be zero if the window
+   * length is less than `minWindowLength`.
    */
   const getCurrentRate = () => {
     debugTL('getCurrentRate called')
-    if (slidingWindow.length > 0) {
-      const { timestamp } = slidingWindow[0]
+    // Remove expired invocations
+    cleanupExpired()
+    // Calculate the rate
+    if (slidingWindow.length >= minWindowLength) {
       const numUnits = sumBy(slidingWindow, 'numUnits')
+      const timeframe = getTimeframe(slidingWindow, optionsWithDefaults)
       debugTL('total units %d', numUnits)
-      const rate = numUnits / ((new Date().getTime() - timestamp) / 1000)
-      debugTL('current rate %d', rate)
+      debugTL('timeframe %d ms', timeframe)
+      const rate = numUnits / (timeframe / period)
+      debugTL('current rate %d units/period', rate)
       return rate
     }
     debugTL('current rate 0')
@@ -138,32 +277,64 @@ export const throughputLimiter = (
    * Call before processing a batch of units. After the first call, a subsequent
    * call assumes that the `numUnits` from the previous call were processed. A
    * call to `throttle` may sleep for a given period of time depending on
-   * `maxUnitsPerSec` and the total number of units over the current window.
+   * `maxUnitsPerPeriod` and the total number of units over the current window.
    */
-  const throttle = async (numUnits: number) => {
-    debugTL('throttle called - %d', numUnits)
-    // Skip check if maxUnitsPerSec is Infinity
-    if (maxUnitsPerSec === Infinity) {
-      debugTL('exiting throttle - maxUnitsPerSec is Infinity')
+  const throttle = async () => {
+    debugTL('throttle called')
+    // Skip check if maxUnitsPerPeriod is Infinity
+    if (maxUnitsPerPeriod === Infinity) {
+      debugTL('exiting throttle - maxUnitsPerPeriod is Infinity')
       return
     }
-    // Sleep if the current rate is above the max allowed. Repeat
-    // until the rate has dropped sufficiently.
-    while (getCurrentRate() > maxUnitsPerSec) {
-      debugTL('sleeping for %d', sleepTime)
+    let throttleTime = 0
+    // Check the rate, sleep, and repeat until the rate is less than
+    // maxUnitsPerPeriod
+    while (getCurrentRate() >= maxUnitsPerPeriod) {
+      debugTL('sleeping for %d ms', sleepTime)
       await sleep(sleepTime)
+      throttleTime += sleepTime
     }
-    slidingWindow.push({ timestamp: new Date().getTime(), numUnits })
-    if (slidingWindow.length > windowLength) {
-      debugTL('truncating slidingWindow')
-      slidingWindow.shift()
+    debugTL('throttled for %d ms', throttleTime)
+  }
+
+  const append = (numUnits: number) => {
+    debugTL('append called with %d unit(s)', numUnits)
+    // Get the current time
+    const now = new Date().getTime()
+    // Add the current invocation to the sliding window
+    slidingWindow.push({ timestamp: now, numUnits })
+    // Truncate the sliding window according to the window length
+    if (slidingWindow.length > maxWindowLength) {
+      const shifted = slidingWindow.shift()
+      debugTL('removed due to length: %o', shifted)
     }
-    debugTL('slidingWindow %o', slidingWindow)
+    debugTL('slidingWindow: %o', slidingWindow)
+  }
+
+  /**
+   * This method is a combination of `throttle` and `append`. It will throttle
+   * first and then append the number of units to the sliding window.
+   */
+  const throttleAndAppend = async (numUnits: number) => {
+    await throttle()
+    append(numUnits)
+  }
+
+  /**
+   * This method is a combination of `append` and `throttle`. It will append
+   * the number of units to the sliding window and then throttle.
+   */
+  const appendAndThrottle = async (numUnits: number) => {
+    append(numUnits)
+    await throttle()
   }
 
   return {
-    throttle,
     getCurrentRate,
+    throttle,
+    append,
+    throttleAndAppend,
+    appendAndThrottle,
   }
 }
 
@@ -236,13 +407,14 @@ export function batchQueue<A, B>(
     if (queue.length) {
       // Wait for the throughput to drop below thresholds for items/sec
       // and bytes/sec limiters.
-      await Promise.all([
-        itemsLimiter.throttle(queue.length),
-        bytesLimiter.throttle(bytes),
-      ])
+      await Promise.all([itemsLimiter.throttle(), bytesLimiter.throttle()])
       // Call fn with queue
       const result = await fn(queue)
       debugBQ('fn called')
+      // Append the number of items and bytes to the limiters
+      itemsLimiter.append(queue.length)
+      bytesLimiter.append(bytes)
+      // Set the last result
       obj.lastResult = result
       // Reset the queue
       queue = []
@@ -293,8 +465,9 @@ export function batchQueue<A, B>(
   }
 
   /**
-   * Returns the current items/sec and bytes/sec values.
-   * These will be zero if the corresponding option is not enabled.
+   * Get stats for the two limiters. These will be zero if the
+   * corresponding option is not enabled.
+   * @returns The current items/sec and bytes/sec values.
    */
   const getStats = () => ({
     itemsPerSec: itemsLimiter.getCurrentRate(),
@@ -395,8 +568,7 @@ export const pausable = (timeout?: number) => {
 /**
  * Call heartbeatFn every interval until promise resolves or rejects.
  * `interval` defaults to 1000.
- *
- * Returns the value of the resolved promise.
+ * @returns The value of the resolved promise.
  */
 export const pacemaker = async <T>(
   heartbeatFn: () => void,
@@ -413,14 +585,18 @@ export const pacemaker = async <T>(
   }
 }
 
-export const TimeoutError = makeError('TimeoutError')
-
 /**
  * Wait until the predicate returns truthy or the timeout expires.
- * Returns a promise.
- *
  * Will not hang like other implementations found on NPM.
  * Inspired by https://www.npmjs.com/package/async-wait-until
+ * @returns A promise that resolves or rejects, accordingly.
+ *
+ * @example
+ * ```typescript
+ * let isTruthy = false
+ * setTimeout(() => { isTruthy = true }, 250)
+ * await waitUntil(() => isTruthy)
+ * ```
  */
 export const waitUntil = (
   pred: () => Promise<boolean> | boolean,

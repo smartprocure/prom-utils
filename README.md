@@ -1,19 +1,119 @@
-# prom-utils
+# Prom-Utils
 
-Promise utilities designed for looping.
+Promise utilities designed for handling asynchronous operations and controlling throughput in JavaScript/TypeScript applications.
 
-## rateLimit
+## Table of Contents
 
-Limit the concurrency of promises. This can be used to control
-how many requests are made to a server, for example. Note:
-exceptions will be swallowed in order to prevent an UnhandledPromiseRejection
-from being thrown in the case where the promise rejects before the limit is
-reached. Therefore, you must handle exceptions on a per promise basis.
-Wrapping `rateLimit` method calls in a try/catch will not work.
+- [Installation](#installation)
+- [API Reference](#api-reference)
+    - [rateLimit](#ratelimit)
+    - [batchQueue](#batchqueue)
+    - [throughputLimiter](#throughputlimiter)
+    - [pausable](#pausable)
+    - [defer](#defer)
+    - [sleep](#sleep)
+    - [pacemaker](#pacemaker)
+    - [waitUntil](#waituntil)
+    - [raceTimeout](#racetimeout)
+- [Error Handling](#error-handling)
+
+## Installation
+
+```bash
+npm install prom-utils
+```
+
+## API Reference
+
+### rateLimit
+
+Limits the concurrency of promises. This can be used to control how many requests are made to a server or API at once.
+
+**Note**: Exceptions will be swallowed internally to prevent UnhandledPromiseRejection errors when promises reject before the limit is reached. Handle exceptions on a per-promise basis.
+
+#### Parameters
+
+- `limit: number` - Maximum number of concurrent promises (set to `Infinity` to disable)
+- `options: RateLimitOptions` - Configuration options
+
+#### Options
+
+The `rateLimit` function accepts two types of options:
 
 ```typescript
-// Limit concurrency to at most 3
-const limiter = rateLimit(3)
+interface RateLimitOptions {
+    /**
+     * Maximum throughput allowed (items/period). Defaults to items/sec.
+     */
+    maxItemsPerPeriod?: number
+}
+```
+
+Since `rateLimit` internally uses `throughputLimiter`, it also accepts all options from `ThroughputLimiterOptions`.
+Below are the options for `ThroughputLimiterOptions` and the defaults used for `rateLimit`.
+
+```typescript
+interface ThroughputLimiterOptions {
+    /**
+     * The period of time in ms to track the rate. Set to 60000 for 1 minute.
+     * Defaults to 1000, which is units/sec.
+     */
+    period?: number
+    /**
+     * The minimum number of throttle invocations prior to checking the rate.
+     * Use this to allow for short bursts without throttling.
+     * Should be 1 or more. Defaults to 1.
+     */
+    minWindowLength?: number
+    /**
+     * The maximum number of throttle invocations to hold in memory.
+     * Should be 1 or more. Defaults to maxItemsPerPeriod.
+     */
+    maxWindowLength?: number
+    /**
+     * Expire throttle invocations after this many ms.
+     * Defaults to the period.
+     */
+    expireAfter?: number
+    /**
+     * The timeframe to use for calculating the rate.
+     * Defaults to getTimeframeUsingPeriod.
+     */
+    getTimeframe?: GetTimeframe
+}
+```
+
+#### Returns
+
+```typescript
+{
+    /**
+     * Add a promise. Waits for one promise to resolve if limit is met or for
+     * throughput to drop below threshold if `maxItemsPerPeriod` is set.
+     * Optionally, set `bypass` to true to bypass async waiting.
+     */
+    add: (prom: Promise<T>, options?: AddOptions) => Promise<void>
+    /**
+     * Wait for all promises to resolve
+     */
+    finish: () => Promise<void>
+    /**
+     * Number of pending promises.
+     */
+    length: number
+    /**
+     * Get current rate statistics
+     */
+    getStats: () => {
+        itemsPerPeriod: number
+    }
+}
+```
+
+#### Example
+
+```typescript
+const limiter = rateLimit(5, { maxItemsPerPeriod: 75, period: 60000 }) // 5 concurrent, max 75 per minute
 
 for (const url of urls) {
     // Will wait for one promise to finish if limit is reached
@@ -23,202 +123,399 @@ for (const url of urls) {
 await limiter.finish()
 ```
 
-## batchQueue
+### batchQueue
 
-Batch calls via a local queue. This can be used to batch values before
-writing to a database, for example.
+Batches calls via a local queue. This can be used to accumulate values before writing to a database or making API calls.
 
-Calls `fn` when either `batchSize`, `batchBytes`, or `timeout` is reached.
-`batchSize` defaults to 500 and therefore will always be in effect if
-no options are provided. You can pass `Infinity` to disregard `batchSize`.
-If `timeout` is passed, the timer will be started when the first item is
-enqueued and reset when `flush` is called explicitly or implicitly.
+#### Parameters
 
-Use `maxItemsPerSec` and/or `maxBytesPerSec` to limit throughput.
-Call `queue.getStats()` to get the items/sec and bytes/sec rates.
+- `fn: (arr: A[]) => B` - Function to call with batched items
+- `options: QueueOptions` - Configuration options
 
-Call `queue.flush()` to flush explicitly.
-
-The last result of calling `fn` can be obtained by referencing `lastResult`
-on the returned object.
-
-The cause of the last automatic queue flush can be obtained by referencing
-`lastFlush` on the returned object.
+#### Options
 
 ```typescript
-const writeToDatabase = async (records) => {...}
-
-const queue = batchQueue(writeToDatabase)
-for (const record of records) {
-  // Will call `fn` when a threshold is met
-  await queue.enqueue(record)
-}
-// Call `fn` with remaining queued items
-await queue.flush()
-```
-
-**Types**
-
-```typescript
-export type QueueResult<A, B> = {
-    /** Call `fn` with the items in the queue. */
-    flush(): Promise<void>
-    /** Add an item to the queue. When a queue condition is met `flush` will be called. */
-    enqueue(item: A): Promise<void>
-    /** The last result returned from calling `fn`. */
-    lastResult?: Awaited<B>
-    /** Get the current throughput rates. */
-    getStats(): QueueStats
-}
-
-export interface QueueOptions {
-    /** Wait for the batch to reach this number of elements before flushing the queue. */
+interface QueueOptions {
+    /**
+     * Wait for the batch to reach this number of elements before flushing the queue.
+     * Defaults to 500.
+     */
     batchSize?: number
-    /** Wait for the batch to reach this size in bytes before flushing the queue. */
+    /**
+     * Wait for the batch to reach this size in bytes before flushing the queue.
+     */
     batchBytes?: number
-    /** Wait this long in ms before flushing the queue. */
+    /**
+     * Wait this long in ms before flushing the queue.
+     */
     timeout?: number
-    /** Maximum throughput allowed (item/sec). */
+    /**
+     * Maximum throughput allowed (items/sec).
+     * Defaults to Infinity.
+     */
     maxItemsPerSec?: number
-    /** Maximum throughput allowed (bytes/sec). */
+    /**
+     * Maximum throughput allowed (bytes/sec).
+     * Defaults to Infinity.
+     */
     maxBytesPerSec?: number
 }
 ```
 
-**Example**
+#### Returns
 
 ```typescript
-const writeToDatabase = async (records) => {...}
-const batchSize = 250
-
-const queue = batchQueue(writeToDatabase, { batchSize })
-for (const record of records) {
-  await queue.enqueue(record)
+{
+  /**
+   * Call fn with the items in the queue.
+   */
+  flush: () => Promise<void>
+  /**
+   * Add an item to the queue. When a queue condition is met flush will be called.
+   */
+  enqueue: (item: A) => Promise<void>
+  /**
+   * The last result returned from calling fn.
+   */
+  lastResult?: Awaited<B>
+  /**
+   * The cause for the last automatic queue flush. Will be one of:
+   * timeout, batchSize, or batchBytes.
+   */
+  lastFlush?: LastFlush
+  /**
+   * Get the current throughput rates.
+   */
+  getStats: () => QueueStats
+  /**
+   * Length of the queue.
+   */
+  length: number
 }
-await queue.flush()
 ```
 
-## throughputLimiter
+#### Example
 
-Limit throughput by sleeping until the rate (units/sec)
-is less than or equal to `maxUnitsPerSec`. Units is intentionally
-abstract since it could represent records/sec or bytes/sec, for
-example.
+```typescript
+const writeToDatabase = async (records) => {
+    // database write logic here
+    return { success: true }
+}
 
-**Example**
+const queue = batchQueue(writeToDatabase, {
+    batchSize: 250,
+    timeout: 5000, // also flush after 5 seconds
+    maxItemsPerSec: 1000, // limit to 1000 items per second
+})
+
+for (const record of records) {
+    await queue.enqueue(record)
+}
+
+// Call fn with remaining queued items
+await queue.flush()
+
+// Check statistics
+console.log(queue.getStats())
+```
+
+### throughputLimiter
+
+Limits throughput by sleeping until the rate (units/period) is less than the maximum limit. Units and period are intentionally abstract since they could represent requests/min, bytes/sec, etc.
+
+#### Parameters
+
+- `maxUnitsPerPeriod: number` - Maximum units allowed per period
+- `options: ThroughputLimiterOptions` - Configuration options
+
+#### Options
+
+```typescript
+interface ThroughputLimiterOptions {
+    /**
+     * The period of time in ms to track the rate. Set to 60000 for 1 minute.
+     * Defaults to 1000, which is units/sec.
+     */
+    period?: number
+    /**
+     * The minimum number of throttle invocations prior to checking the rate.
+     * Use this to allow for short bursts without throttling.
+     * Should be 1 or more. Defaults to 1.
+     */
+    minWindowLength?: number
+    /**
+     * The maximum number of throttle invocations to hold in memory.
+     * Should be 1 or more. Defaults to 3.
+     */
+    maxWindowLength?: number
+    /**
+     * Expire throttle invocations after this many ms.
+     * Defaults to Infinity.
+     */
+    expireAfter?: number
+    /**
+     * The timeframe to use for calculating the rate.
+     * Two built-in options: getTimeframeUsingElapsed or getTimeframeUsingPeriod.
+     * Defaults to getTimeframeUsingElapsed.
+     */
+    getTimeframe?: GetTimeframe
+}
+```
+
+#### Returns
+
+```typescript
+{
+  /**
+   * Get the current rate (units/period).
+   */
+  getCurrentRate: () => number
+  /**
+   * Sleep until the rate is below the maximum.
+   */
+  throttle: () => Promise<void>
+  /**
+   * Add units to the sliding window.
+   */
+  append: (numUnits: number) => void
+  /**
+   * Throttle first, then append.
+   */
+  throttleAndAppend: (numUnits: number) => Promise<void>
+  /**
+   * Append first, then throttle.
+   */
+  appendAndThrottle: (numUnits: number) => Promise<void>
+}
+```
+
+#### Example
 
 ```typescript
 // Limit to at most 1000 items/sec
 const limiter = throughputLimiter(1000)
 
 for (const batch of batches) {
-    // Will wait until the rate is <= `maxUnitsPerSec`
-    await limiter.throttle(batch.length)
-    console.log('Items/sec %d', limiter.getCurrentRate())
+    // Will wait until the rate is < maxUnitsPerPeriod
+    await limiter.throttleAndAppend(batch.length)
+    console.log('Current rate: %d items/sec', limiter.getCurrentRate())
 }
 ```
 
-**Types**
+### pausable
+
+Creates a mechanism to pause and resume a loop. When `pause` is called, `maybeBlock` will return a promise that resolves when `resume` is called.
+
+#### Parameters
+
+- `timeout?: number` - Optional timeout in ms to auto-resume
+
+#### Returns
 
 ```typescript
-export interface ThroughputLimiterOptions {
-    /** The maximum number of start invocations to hold in memory. */
-    windowLength?: number
-    /** Number of ms to sleep before checking the rate again. Defaults to 100. */
-    sleepTime?: number
+{
+  /**
+   * Pause execution when maybeBlock is called.
+   */
+  pause: () => void
+  /**
+   * Resume execution.
+   */
+  resume: () => void
+  /**
+   * Call in your loop to potentially block execution.
+   */
+  maybeBlock: () => Promise<void> | undefined
+  /**
+   * Whether currently paused.
+   */
+  isPaused: boolean
 }
 ```
 
-## pausable
-
-Pause a loop by awaiting `maybeBlock`. When `pause` is called `maybeBlock` will
-return a promise that is resolved when `resume` is called. Otherwise,
-`maybeBlock` will return immediately. If `timeout` is passed, `resume` will
-be called after `timeout` if it is not manually called first.
+#### Example
 
 ```typescript
 const shouldProcess = pausable()
 
-onSomeCondition(shouldProcess.pause)
-onSomeOtherCondition(shouldProcess.resume)
+// In some event handler or condition
+onSomeCondition(() => shouldProcess.pause())
+onSomeOtherCondition(() => shouldProcess.resume())
 
+// In your processing loop
 for (const record of records) {
     await shouldProcess.maybeBlock()
     await processRecord(record)
 }
 ```
 
-## defer
+### defer
 
-Defer resolving a promise until `done` is called.
+Creates a deferred promise that resolves when `done` is called.
+
+#### Returns
+
+```typescript
+{
+  /**
+   * Resolves the promise when called.
+   */
+  done: () => void
+  /**
+   * Promise that resolves when done() is called.
+   */
+  promise: Promise<void>
+}
+```
+
+#### Example
 
 ```typescript
 const delay = (milliseconds: number) => {
     const deferred = defer()
-    setTimeout(deferred.done, milliseconds, '🦄')
+    setTimeout(deferred.done, milliseconds)
     return deferred.promise
 }
+
+// Use the delay function
+await delay(1000) // Wait 1 second
 ```
 
-## sleep
+### sleep
 
-Sleep for `time` ms before resolving the Promise.
+Sleep for a specified time before resolving the promise.
+
+#### Parameters
+
+- `time?: number` - Time to sleep in ms, defaults to 0
+
+#### Returns
+
+- `Promise<void>` - Resolves after the specified time
+
+#### Example
 
 ```typescript
 // Sleep for one second
 await sleep(1000)
 ```
 
-## pacemaker
+### pacemaker
 
-Call heartbeatFn every interval until promise resolves or rejects.
-`interval` defaults to 1000.
+Calls a heartbeat function at regular intervals until a promise resolves or rejects.
 
-Returns the value of the resolved promise.
+#### Parameters
+
+- `heartbeatFn: () => void` - Function to call at intervals
+- `promise: Promise<T>` - Promise to wait for
+- `interval?: number` - Interval in ms, defaults to 1000
+
+#### Returns
+
+- The value from the resolved promise
+
+#### Example
 
 ```typescript
 const heartbeatFn = () => {
-    // Emit heartbeat
+    console.log('Still processing...')
 }
 
-const result = await pacemaker(heartbeatFn, someProm)
+const result = await pacemaker(heartbeatFn, longRunningOperation())
 ```
 
-## waitUntil
+### waitUntil
 
-Wait until the predicate returns truthy or the timeout expires.
-Returns a promise.
+Waits until a predicate function returns true or a timeout expires.
 
-**Types**
+#### Parameters
+
+- `pred: () => Promise<boolean> | boolean` - Predicate function
+- `options: WaitOptions` - Configuration options
+
+#### Options
 
 ```typescript
-export interface WaitOptions {
-    /** Wait this long in ms before rejecting. Defaults to 5000 ms. */
+interface WaitOptions {
+    /**
+     * Wait this long in ms before rejecting. Defaults to 5000 ms.
+     */
     timeout?: number
-    /** Check the predicate with this frequency. Defaults to 50 ms. */
+    /**
+     * Check the predicate with this frequency. Defaults to 50 ms.
+     */
     checkFrequency?: number
 }
 ```
 
-**Example**
+#### Returns
+
+- `Promise<void>` - Resolves when the predicate returns true, rejects if timeout expires
+
+#### Example
 
 ```typescript
-let isTruthy = false
+let isReady = false
 setTimeout(() => {
-    isTruthy = true
-}, 250)
-await waitUntil(() => isTruthy)
+    isReady = true
+}, 2000)
+
+try {
+    await waitUntil(() => isReady, { timeout: 5000 })
+    console.log('Ready!')
+} catch (error) {
+    if (error instanceof TimeoutError) {
+        console.log('Timed out waiting for ready state')
+    } else {
+        throw error
+    }
+}
 ```
 
-## raceTimeout
+### raceTimeout
 
-Returns the value of the promise if the promise resolves prior to timeout.
-If the timeout happens first, the exported TIMEOUT symbol is returned.
+Returns the value of a promise if it resolves before a timeout, otherwise returns the exported TIMEOUT symbol.
+
+#### Parameters
+
+- `prom: Promise<A>` - Promise to race
+- `timeout: number` - Timeout in ms
+
+#### Returns
+
+- `Promise<A | typeof TIMEOUT>` - Either the promise result or TIMEOUT symbol
+
+#### Example
 
 ```typescript
-const winner = await raceTimeout(someProm, 5)
+const winner = await raceTimeout(someLongOperation(), 5000)
 
 if (winner === TIMEOUT) {
-  // Do something
+    console.log('Operation timed out')
+} else {
+    console.log('Operation completed with result:', winner)
+}
+```
+
+## Error Handling
+
+The library exports two error classes:
+
+- `OptionsError` - Thrown when invalid options are provided
+- `TimeoutError` - Thrown when an operation times out
+
+Example:
+
+```typescript
+import { TimeoutError, waitUntil } from 'prom-utils'
+
+try {
+    await waitUntil(() => false, { timeout: 100 })
+} catch (error) {
+    if (error instanceof TimeoutError) {
+        console.log('Timed out:', error.message)
+    } else {
+        throw error
+    }
 }
 ```
