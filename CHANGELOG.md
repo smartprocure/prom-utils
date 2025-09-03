@@ -9,12 +9,12 @@
 # 0.15.0
 
 - `rateLimit`
-  - Added `maxItemsPerPeriod` option along with the options from `throughputLimiter`.
-  - Added `bypass` option to `add`.
+    - Added `maxItemsPerPeriod` option along with the options from `throughputLimiter`.
+    - Added `bypass` option to `add`.
 - `throughputLimiter`
-  - Added `minWindowLength`, `period`, `expireAfter`, and `getTimeframe` options.
-  - The `windowLength` option is now `maxWindowLength`.
-  - Separated `throttle` and `append`. These two convenience methods were also created: `throttleAndAppend` and `appendAndThrottle`.
+    - Added `minWindowLength`, `period`, `expireAfter`, and `getTimeframe` options.
+    - The `windowLength` option is now `maxWindowLength`.
+    - Separated `throttle` and `append`. These two convenience methods were also created: `throttleAndAppend` and `appendAndThrottle`.
 
 # 0.14.0
 
