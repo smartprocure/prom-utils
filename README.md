@@ -8,6 +8,7 @@ Promise utilities designed for handling asynchronous operations and controlling 
 - [API Reference](#api-reference)
     - [rateLimit](#ratelimit)
     - [batchQueue](#batchqueue)
+    - [batchQueueParallel](#batchqueueparallel)
     - [throughputLimiter](#throughputlimiter)
     - [pausable](#pausable)
     - [defer](#defer)
@@ -217,6 +218,77 @@ await queue.flush()
 
 // Check statistics
 console.log(queue.getStats())
+```
+
+### batchQueueParallel
+
+Batches calls via a local queue, similar to `batchQueue` but designed to be safe for concurrent access. This can be used to accumulate values before writing to a database or making API calls when you need to call it from multiple concurrent contexts.
+
+**Note**: Unlike `batchQueue`, this function does not support timeout-based flushing or throughput limiting options. It only supports `batchSize` and `batchBytes` triggers.
+
+#### Parameters
+
+- `fn: (arr: A[]) => unknown` - Function to call with batched items
+- `options: QueueOptionsParallel` - Configuration options
+
+#### Options
+
+```typescript
+interface QueueOptionsParallel {
+    /**
+     * Wait for the batch to reach this number of elements before flushing the queue.
+     * Defaults to 500.
+     */
+    batchSize?: number
+    /**
+     * Wait for the batch to reach this size in bytes before flushing the queue.
+     */
+    batchBytes?: number
+}
+```
+
+#### Returns
+
+```typescript
+{
+  /**
+   * Call fn with the items in the queue.
+   */
+  flush: () => void
+  /**
+   * Add an item to the queue. When a queue condition is met flush will be called.
+   */
+  enqueue: (item: A) => void
+  /**
+   * Length of the queue.
+   */
+  length: number
+}
+```
+
+#### Example
+
+```typescript
+const writeToDatabase = (records) => {
+    // database write logic here
+    console.log(`Writing ${records.length} records`)
+}
+
+const queue = batchQueueParallel(writeToDatabase, {
+    batchSize: 250,
+    batchBytes: 1024 * 1024, // 1MB
+})
+
+// Safe to call from multiple concurrent contexts
+await Promise.all(
+    records.map(async (record) => {
+        // This is safe to call concurrently
+        queue.enqueue(record)
+    })
+)
+
+// Call fn with remaining queued items
+queue.flush()
 ```
 
 ### throughputLimiter
