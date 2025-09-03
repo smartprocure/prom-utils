@@ -26,6 +26,15 @@ export type QueueResult<A, B> = {
   get length(): number
 }
 
+export type QueueResultParallel<A> = {
+  /** Call `fn` with the items in the queue. */
+  flush(): void
+  /** Add an item to the queue. When a queue condition is met `flush` will be called. */
+  enqueue(item: A): void
+  /** Length of the queue. */
+  get length(): number
+}
+
 export interface RateLimitOptions {
   /**
    * Maximum throughput allowed (items/period). Defaults to items/sec.
@@ -41,11 +50,17 @@ export interface AddOptions {
   bypass?: boolean
 }
 
-export interface QueueOptions {
-  /** Wait for the batch to reach this number of elements before flushing the queue. */
+export interface QueueOptionsParallel {
+  /**
+   * Wait for the batch to reach this number of elements before flushing the queue.
+   * Defaults to 500
+   */
   batchSize?: number
   /** Wait for the batch to reach this size in bytes before flushing the queue. */
   batchBytes?: number
+}
+
+export interface QueueOptions extends QueueOptionsParallel {
   /** Wait this long in ms before flushing the queue. */
   timeout?: number
   /** Maximum throughput allowed (item/sec). */

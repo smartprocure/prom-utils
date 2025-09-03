@@ -8,7 +8,9 @@ import {
   Deferred,
   GetTimeframe,
   QueueOptions,
+  QueueOptionsParallel,
   QueueResult,
+  QueueResultParallel,
   RateLimitOptions,
   SlidingWindow,
   ThroughputLimiterOptions,
@@ -483,6 +485,82 @@ export function batchQueue<A, B>(
     flush,
     enqueue,
     getStats,
+    get length() {
+      return queue.length
+    },
+  }
+  return obj
+}
+
+/**
+ * Batch calls via a local queue. This can be used to batch values before
+ * writing to a database, for example. Unlike `batchQueue`, this is safe to
+ * be called concurrently. In particular, you can pair `rateLimit` with this.
+ *
+ * Calls `fn` when either `batchSize` or `batchBytes` is reached.
+ * `batchSize` defaults to 500 and therefore will always be in effect if
+ * no options are provided. You can pass `Infinity` to disregard `batchSize`.
+ *
+ * Call `queue.flush()` to flush explicitly.
+ */
+export function batchQueueParallel<A>(
+  fn: (arr: A[]) => unknown,
+  options: QueueOptionsParallel = {}
+) {
+  const { batchSize = 500, batchBytes } = options
+  debugBQ('options %o', options)
+  let queue: A[] = []
+  let bytes = 0
+
+  /**
+   * Call fn on queue and clear the queue. A delay may occur before fn is
+   * called if `maxItemsPerSec` or `maxBytesPerSec` are set and one of the
+   * rates is above the given threshold.
+   */
+  const flush = async () => {
+    debugBQ('flush called - queue length %d', queue.length)
+    // Queue is not empty
+    if (queue.length) {
+      // Call fn with queue
+      fn(queue)
+      debugBQ('fn called')
+      // Reset the queue
+      queue = []
+      // Reset the size
+      bytes = 0
+      debugBQ('queue reset')
+    }
+  }
+
+  /**
+   * Enqueue an item. If the batch size is reached flush queue immediately.
+   */
+  const enqueue = (item: A) => {
+    debugBQ('enqueue called')
+    // Add item to queue
+    queue.push(item)
+    // Calculate total bytes if a bytes-related option is set
+    if (batchBytes) {
+      bytes += size(item)
+      debugBQ('bytes %d', bytes)
+    }
+    // Batch size reached
+    if (queue.length === batchSize) {
+      debugBQ('batchSize reached %d', queue.length)
+      // Flush queue
+      flush()
+    }
+    // Batch bytes reached
+    else if (batchBytes && bytes >= batchBytes) {
+      debugBQ('batchBytes reached %d', bytes)
+      // Flush queue
+      flush()
+    }
+  }
+
+  const obj: QueueResultParallel<A> = {
+    flush,
+    enqueue,
     get length() {
       return queue.length
     },
