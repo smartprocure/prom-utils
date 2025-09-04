@@ -20,6 +20,7 @@ import {
 const debugRL = _debug('prom-utils:rateLimit')
 const debugTL = _debug('prom-utils:throughputLimiter')
 const debugBQ = _debug('prom-utils:batchQueue')
+const debugBQP = _debug('prom-utils:batchQueueParallel')
 const debugPM = _debug('prom-utils:pacemaker')
 const debugWU = _debug('prom-utils:waitUntil')
 const debugP = _debug('prom-utils:pausable')
@@ -508,7 +509,7 @@ export function batchQueueParallel<A>(
   options: QueueOptionsParallel = {}
 ) {
   const { batchSize = 500, batchBytes } = options
-  debugBQ('options %o', options)
+  debugBQP('options %o', options)
   let queue: A[] = []
   let bytes = 0
 
@@ -517,18 +518,18 @@ export function batchQueueParallel<A>(
    * called if `maxItemsPerSec` or `maxBytesPerSec` are set and one of the
    * rates is above the given threshold.
    */
-  const flush = async () => {
-    debugBQ('flush called - queue length %d', queue.length)
+  const flush = () => {
+    debugBQP('flush called - queue length %d', queue.length)
     // Queue is not empty
     if (queue.length) {
       // Call fn with queue
       fn(queue)
-      debugBQ('fn called')
+      debugBQP('fn called')
       // Reset the queue
       queue = []
       // Reset the size
       bytes = 0
-      debugBQ('queue reset')
+      debugBQP('queue reset')
     }
   }
 
@@ -536,23 +537,23 @@ export function batchQueueParallel<A>(
    * Enqueue an item. If the batch size is reached flush queue immediately.
    */
   const enqueue = (item: A) => {
-    debugBQ('enqueue called')
+    debugBQP('enqueue called')
     // Add item to queue
     queue.push(item)
     // Calculate total bytes if a bytes-related option is set
     if (batchBytes) {
       bytes += size(item)
-      debugBQ('bytes %d', bytes)
+      debugBQP('bytes %d', bytes)
     }
     // Batch size reached
     if (queue.length === batchSize) {
-      debugBQ('batchSize reached %d', queue.length)
+      debugBQP('batchSize reached %d', queue.length)
       // Flush queue
       flush()
     }
     // Batch bytes reached
     else if (batchBytes && bytes >= batchBytes) {
-      debugBQ('batchBytes reached %d', bytes)
+      debugBQP('batchBytes reached %d', bytes)
       // Flush queue
       flush()
     }
