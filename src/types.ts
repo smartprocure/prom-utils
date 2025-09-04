@@ -26,11 +26,18 @@ export type QueueResult<A, B> = {
   get length(): number
 }
 
-export type QueueResultParallel<A> = {
+export type QueueResultParallel<A, B> = {
   /** Call `fn` with the items in the queue. */
   flush(): void
   /** Add an item to the queue. When a queue condition is met `flush` will be called. */
   enqueue(item: A): void
+  /** Array of accumulated results for all callback calls. */
+  results: B[]
+  /**
+   * The cause for the last automatic queue flush. Will be one of the
+   * following: batchSize or batchBytes.
+   */
+  lastFlush?: LastFlush
   /** Length of the queue. */
   get length(): number
 }

@@ -504,14 +504,15 @@ export function batchQueue<A, B>(
  *
  * Call `queue.flush()` to flush explicitly.
  */
-export function batchQueueParallel<A>(
-  fn: (arr: A[]) => unknown,
+export function batchQueueParallel<A, B>(
+  fn: (arr: A[]) => B,
   options: QueueOptionsParallel = {}
 ) {
   const { batchSize = 500, batchBytes } = options
   debugBQP('options %o', options)
   let queue: A[] = []
   let bytes = 0
+  const results: B[] = []
 
   /**
    * Call fn on queue and clear the queue. A delay may occur before fn is
@@ -523,7 +524,7 @@ export function batchQueueParallel<A>(
     // Queue is not empty
     if (queue.length) {
       // Call fn with queue
-      fn(queue)
+      results.push(fn(queue))
       debugBQP('fn called')
       // Reset the queue
       queue = []
@@ -548,20 +549,23 @@ export function batchQueueParallel<A>(
     // Batch size reached
     if (queue.length === batchSize) {
       debugBQP('batchSize reached %d', queue.length)
+      obj.lastFlush = { batchSize }
       // Flush queue
       flush()
     }
     // Batch bytes reached
     else if (batchBytes && bytes >= batchBytes) {
       debugBQP('batchBytes reached %d', bytes)
+      obj.lastFlush = { batchBytes }
       // Flush queue
       flush()
     }
   }
 
-  const obj: QueueResultParallel<A> = {
+  const obj: QueueResultParallel<A, B> = {
     flush,
     enqueue,
+    results,
     get length() {
       return queue.length
     },

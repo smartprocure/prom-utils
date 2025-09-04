@@ -357,7 +357,7 @@ describe('batchQueueParallel', () => {
   })
 
   test('should flush automatically when batchSize is reached', () => {
-    expect.assertions(2)
+    expect.assertions(3)
     const calls: any[] = []
     const fn = (records: string[]) => {
       calls.push([...records])
@@ -373,10 +373,11 @@ describe('batchQueueParallel', () => {
     // Should have auto-flushed once when batchSize was reached
     expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
     expect(queue.length).toBe(2) // Tim and Alice still in queue
+    expect(queue.lastFlush).toEqual({ batchSize })
   })
 
   test('should handle batchBytes option', () => {
-    expect.assertions(3)
+    expect.assertions(4)
     const calls: any[] = []
     const fn = (records: string[]) => {
       calls.push([...records])
@@ -394,6 +395,7 @@ describe('batchQueueParallel', () => {
     expect(calls.length).toBeGreaterThan(0)
     expect(calls[0].length).toBeGreaterThan(0)
     expect(queue.length).toBeGreaterThanOrEqual(0)
+    expect(queue.lastFlush).toEqual({ batchBytes })
   })
 
   test('should flush manually with remaining items', () => {
@@ -452,8 +454,8 @@ describe('batchQueueParallel', () => {
     await setTimeout(5)
     queue.enqueue('D') // Should trigger another flush
 
-    // Wait a bit more for async fn calls to complete
-    await setTimeout(50)
+    // Wait for async fn calls to complete
+    await Promise.all(queue.results)
 
     expect(calls.length).toBe(2)
     expect(calls[0]).toEqual(['A', 'B'])
