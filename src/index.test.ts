@@ -438,6 +438,7 @@ describe('batchQueueParallel', () => {
       // Simulate async processing
       await setTimeout(10)
       calls.push([...records])
+      console.log('fn finished: %o', records)
     }
     const batchSize = 2
 
