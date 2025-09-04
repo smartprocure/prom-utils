@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 
 import {
   batchQueue,
+  batchQueueParallel,
   defer,
   OptionsError,
   pacemaker,
@@ -331,6 +332,134 @@ describe('batchQueue', () => {
     const stats = queue.getStats()
     expect(stats.bytesPerSec).toBeLessThan(100)
     expect(stats.itemsPerSec).toBeLessThan(10)
+  })
+})
+
+describe('batchQueueParallel', () => {
+  test('should batch items up to batchSize', () => {
+    expect.assertions(3)
+    const calls: any[] = []
+    const fn = (records: string[]) => {
+      calls.push([...records]) // Copy array since it gets reset
+    }
+    const batchSize = 2
+
+    const queue = batchQueueParallel(fn, { batchSize })
+    const records = ['Joe', 'Frank', 'Bob']
+
+    for (const record of records) {
+      queue.enqueue(record)
+    }
+    queue.flush()
+    expect(calls).toEqual([['Joe', 'Frank'], ['Bob']])
+    expect(queue.length).toBe(0)
+    expect(calls.length).toBe(2)
+  })
+
+  test('should flush automatically when batchSize is reached', () => {
+    expect.assertions(3)
+    const calls: any[] = []
+    const fn = (records: string[]) => {
+      calls.push([...records])
+    }
+    const batchSize = 3
+
+    const queue = batchQueueParallel(fn, { batchSize })
+    const records = ['Joe', 'Frank', 'Bob', 'Tim', 'Alice']
+
+    for (const record of records) {
+      queue.enqueue(record)
+    }
+    // Should have auto-flushed once when batchSize was reached
+    expect(calls).toEqual([['Joe', 'Frank', 'Bob']])
+    expect(queue.length).toBe(2) // Tim and Alice still in queue
+    expect(queue.lastFlush).toEqual({ batchSize })
+  })
+
+  test('should handle batchBytes option', () => {
+    expect.assertions(4)
+    const calls: any[] = []
+    const fn = (records: string[]) => {
+      calls.push([...records])
+    }
+    // Each string is roughly 3-5 bytes, so batchBytes of 10 should trigger with 3-4 items
+    const batchBytes = 10
+
+    const queue = batchQueueParallel(fn, { batchBytes })
+    const records = ['Joe', 'Frank', 'Bob', 'Tim']
+
+    for (const record of records) {
+      queue.enqueue(record)
+    }
+    // Should have auto-flushed when batchBytes was reached
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls[0].length).toBeGreaterThan(0)
+    expect(queue.length).toBeGreaterThanOrEqual(0)
+    expect(queue.lastFlush).toEqual({ batchBytes })
+  })
+
+  test('should flush manually with remaining items', () => {
+    expect.assertions(3)
+    const calls: any[] = []
+    const fn = (records: string[]) => {
+      calls.push([...records])
+    }
+    const batchSize = 3
+
+    const queue = batchQueueParallel(fn, { batchSize })
+    const records = ['Joe', 'Frank']
+
+    for (const record of records) {
+      queue.enqueue(record)
+    }
+    expect(queue.length).toBe(2)
+
+    queue.flush()
+    expect(calls).toEqual([['Joe', 'Frank']])
+    expect(queue.length).toBe(0)
+  })
+
+  test('calling flush on an empty queue should not call fn', () => {
+    expect.assertions(2)
+    const calls: any[] = []
+    const fn = (records: string[]) => {
+      calls.push([...records])
+    }
+
+    const queue = batchQueueParallel(fn)
+    queue.flush()
+
+    expect(calls.length).toBe(0)
+    expect(queue.length).toBe(0)
+  })
+
+  test('should be safe for concurrent access', async () => {
+    expect.assertions(3)
+    const calls: any[] = []
+    const fn = async (records: string[]) => {
+      // Simulate async processing
+      await setTimeout(10)
+      calls.push([...records])
+      console.log('fn finished: %o', records)
+    }
+    const batchSize = 2
+
+    const queue = batchQueueParallel(fn, { batchSize })
+
+    // Simulate concurrent enqueuing with async delays
+    queue.enqueue('A')
+    await setTimeout(5)
+    queue.enqueue('B') // Should trigger flush
+    queue.enqueue('C')
+    await setTimeout(5)
+    queue.enqueue('D') // Should trigger another flush
+
+    // Wait for async fn calls to complete
+    await Promise.all(queue.results)
+
+    expect(calls.length).toBe(2)
+    expect(calls[0]).toEqual(['A', 'B'])
+    expect(calls[1]).toEqual(['C', 'D'])
   })
 })
 

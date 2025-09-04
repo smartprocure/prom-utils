@@ -1,3 +1,7 @@
+# 0.17.0
+
+- Added `batchQueueParallel` - A concurrent-safe version of `batchQueue` that supports `batchSize` and `batchBytes` options but not timeout or throughput limiting.
+
 # 0.16.0
 
 - Dependencies updated.

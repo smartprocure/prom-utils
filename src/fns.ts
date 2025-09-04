@@ -8,7 +8,9 @@ import {
   Deferred,
   GetTimeframe,
   QueueOptions,
+  QueueOptionsParallel,
   QueueResult,
+  QueueResultParallel,
   RateLimitOptions,
   SlidingWindow,
   ThroughputLimiterOptions,
@@ -18,6 +20,7 @@ import {
 const debugRL = _debug('prom-utils:rateLimit')
 const debugTL = _debug('prom-utils:throughputLimiter')
 const debugBQ = _debug('prom-utils:batchQueue')
+const debugBQP = _debug('prom-utils:batchQueueParallel')
 const debugPM = _debug('prom-utils:pacemaker')
 const debugWU = _debug('prom-utils:waitUntil')
 const debugP = _debug('prom-utils:pausable')
@@ -483,6 +486,84 @@ export function batchQueue<A, B>(
     flush,
     enqueue,
     getStats,
+    get length() {
+      return queue.length
+    },
+  }
+  return obj
+}
+
+/**
+ * Batch calls via a local queue. This can be used to batch values before
+ * writing to a database, for example. Unlike `batchQueue`, this is safe to
+ * be called concurrently. In particular, you can pair `rateLimit` with this.
+ *
+ * Calls `fn` when either `batchSize` or `batchBytes` is reached.
+ * `batchSize` defaults to 500 and therefore will always be in effect if
+ * no options are provided. You can pass `Infinity` to disregard `batchSize`.
+ *
+ * Call `queue.flush()` to flush explicitly.
+ */
+export function batchQueueParallel<A, B>(
+  fn: (arr: A[]) => B,
+  options: QueueOptionsParallel = {}
+) {
+  const { batchSize = 500, batchBytes } = options
+  debugBQP('options %o', options)
+  let queue: A[] = []
+  let bytes = 0
+  const results: B[] = []
+
+  /**
+   * Call fn on queue and clear the queue
+   */
+  const flush = () => {
+    debugBQP('flush called - queue length %d', queue.length)
+    // Queue is not empty
+    if (queue.length) {
+      // Call fn with queue
+      results.push(fn(queue))
+      debugBQP('fn called')
+      // Reset the queue
+      queue = []
+      // Reset the size
+      bytes = 0
+      debugBQP('queue reset')
+    }
+  }
+
+  /**
+   * Enqueue an item. If a threshold is reached flush queue immediately.
+   */
+  const enqueue = (item: A) => {
+    debugBQP('enqueue called')
+    // Add item to queue
+    queue.push(item)
+    // Calculate total bytes if a bytes-related option is set
+    if (batchBytes) {
+      bytes += size(item)
+      debugBQP('bytes %d', bytes)
+    }
+    // Batch size reached
+    if (queue.length === batchSize) {
+      debugBQP('batchSize reached %d', queue.length)
+      obj.lastFlush = { batchSize }
+      // Flush queue
+      flush()
+    }
+    // Batch bytes reached
+    else if (batchBytes && bytes >= batchBytes) {
+      debugBQP('batchBytes reached %d', bytes)
+      obj.lastFlush = { batchBytes }
+      // Flush queue
+      flush()
+    }
+  }
+
+  const obj: QueueResultParallel<A, B> = {
+    flush,
+    enqueue,
+    results,
     get length() {
       return queue.length
     },
