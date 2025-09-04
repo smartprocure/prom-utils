@@ -515,9 +515,7 @@ export function batchQueueParallel<A, B>(
   const results: B[] = []
 
   /**
-   * Call fn on queue and clear the queue. A delay may occur before fn is
-   * called if `maxItemsPerSec` or `maxBytesPerSec` are set and one of the
-   * rates is above the given threshold.
+   * Call fn on queue and clear the queue
    */
   const flush = () => {
     debugBQP('flush called - queue length %d', queue.length)
@@ -535,7 +533,7 @@ export function batchQueueParallel<A, B>(
   }
 
   /**
-   * Enqueue an item. If the batch size is reached flush queue immediately.
+   * Enqueue an item. If a threshold is reached flush queue immediately.
    */
   const enqueue = (item: A) => {
     debugBQP('enqueue called')
