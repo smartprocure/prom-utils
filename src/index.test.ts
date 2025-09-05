@@ -434,7 +434,7 @@ describe('batchQueueParallel', () => {
   })
 
   test('should be safe for concurrent access', async () => {
-    expect.assertions(3)
+    expect.assertions(4)
     const calls: any[] = []
     const fn = async (records: string[]) => {
       // Simulate async processing
@@ -453,13 +453,16 @@ describe('batchQueueParallel', () => {
     queue.enqueue('C')
     await setTimeout(5)
     queue.enqueue('D') // Should trigger another flush
+    queue.enqueue('E')
 
+    queue.flush()
     // Wait for async fn calls to complete
     await Promise.all(queue.results)
 
-    expect(calls.length).toBe(2)
+    expect(calls.length).toBe(3)
     expect(calls[0]).toEqual(['A', 'B'])
     expect(calls[1]).toEqual(['C', 'D'])
+    expect(calls[2]).toEqual(['E'])
   })
 })
 
