@@ -758,7 +758,7 @@ export const multiplex = async function* <T>(
 
   // Call next on all iterators in random order to avoid favoring the first iterator
   const pending = new Map(
-    shuffle(iterators).map((iterator) => [
+    iterators.map((iterator) => [
       iterator,
       iterator.next().then(
         (res): IteratorSuccess<T> => ({ res, iterator }),
@@ -769,8 +769,10 @@ export const multiplex = async function* <T>(
 
   try {
     while (pending.size > 0) {
+      // Randomize the order of the iterators
+      const values = shuffle([...pending.values()])
       // Wait for the first iterator to resolve
-      const result = await Promise.race(pending.values())
+      const result = await Promise.race(values)
 
       // If it errored, throw the error
       if ('err' in result) {
