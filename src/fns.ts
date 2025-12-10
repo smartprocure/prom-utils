@@ -738,7 +738,7 @@ export const waitUntil = (
 /**
  * Merges multiple async iterators into a single async iterator. The merged
  * iterator will yield values as they become available from the input iterators.
- * The order in which iterators are checked is randomized to prevent
+ * The order in which the iterators are checked is randomized to prevent
  * consistently favoring the first iterator when multiple values are available
  * simultaneously. If any of the input iterators throws an error, the merged
  * iterator will throw an error. The merged iterator will terminate when all of
