@@ -126,3 +126,8 @@ export interface ThroughputLimiterOptions {
    */
   getTimeframe?: GetTimeframe
 }
+
+export type AsyncIter<T> = AsyncIterator<T> | AsyncIterable<T>
+
+export type IteratorSuccess<T> = { res: IteratorResult<T>; iterator: AsyncIterator<T> }
+export type IteratorFailure<T> = { err: unknown; iterator: AsyncIterator<T> }

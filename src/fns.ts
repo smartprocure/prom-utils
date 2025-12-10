@@ -5,8 +5,11 @@ import { size } from 'obj-walker'
 
 import {
   AddOptions,
+  AsyncIter,
   Deferred,
   GetTimeframe,
+  IteratorFailure,
+  IteratorSuccess,
   QueueOptions,
   QueueOptionsParallel,
   QueueResult,
@@ -731,6 +734,71 @@ export const waitUntil = (
     }
     check()
   })
+
+/**
+ * Merges multiple async iterators into a single async iterator. The merged
+ * iterator will yield values as they become available from the input iterators.
+ * If any of the input iterators throws an error, the merged iterator will throw
+ * an error. The merged iterator will terminate when all of the input iterators
+ * have terminated.
+ *
+ * @param iters - the async iterators to merge
+ */
+export const multiplex = async function* <T>(
+  ...iters: Array<AsyncIter<T>>
+): AsyncIterableIterator<T> {
+  // Convert to Async Iterators
+  const iterators = iters.map((iter) =>
+    Symbol.asyncIterator in iter
+      ? (iter as AsyncIterable<T>)[Symbol.asyncIterator]()
+      : iter
+  )
+
+  // Call next on all iterators
+  const pending = new Map(
+    iterators.map((iterator) => [
+      iterator,
+      iterator.next().then(
+        (res): IteratorSuccess<T> => ({ res, iterator }),
+        (err): IteratorFailure<T> => ({ err, iterator })
+      ),
+    ])
+  )
+
+  try {
+    while (pending.size > 0) {
+      // Wait for the first iterator to resolve
+      const result = await Promise.race(pending.values())
+
+      // If it errored, throw the error
+      if ('err' in result) {
+        pending.delete(result.iterator)
+        throw result.err
+      }
+
+      // If it's done, remove it from the pending list
+      if (result.res.done) {
+        pending.delete(result.iterator)
+      }
+      // Otherwise, yield the value and add it back to the pending list
+      else {
+        yield result.res.value
+        pending.set(
+          result.iterator,
+          result.iterator.next().then(
+            (res): IteratorSuccess<T> => ({ res, iterator: result.iterator }),
+            (err): IteratorFailure<T> => ({ err, iterator: result.iterator })
+          )
+        )
+      }
+    }
+  } finally {
+    // If we exit the loop, make sure to clean up any remaining iterators
+    await Promise.all(
+      [...pending.keys()].map((iterator) => iterator.return?.())
+    )
+  }
+}
 
 /**
  * Sleep for `time` ms before resolving the Promise.

@@ -16,6 +16,7 @@ Promise utilities designed for handling asynchronous operations and controlling 
     - [pacemaker](#pacemaker)
     - [waitUntil](#waituntil)
     - [raceTimeout](#racetimeout)
+    - [multiplex](#multiplex)
 - [Error Handling](#error-handling)
 
 ## Installation
@@ -566,6 +567,51 @@ if (winner === TIMEOUT) {
     console.log('Operation timed out')
 } else {
     console.log('Operation completed with result:', winner)
+}
+```
+
+### multiplex
+
+Merges multiple async iterators into a single async iterator. The merged iterator yields values as they become available from the input iterators. If any of the input iterators throws an error, the merged iterator will throw an error. The merged iterator terminates when all of the input iterators have terminated.
+
+#### Parameters
+
+- `...iters: Array<AsyncIter<T>>` - The async iterators or async iterables to merge
+
+#### Returns
+
+- `AsyncIterableIterator<T>` - An async iterator that yields values from all input iterators
+
+#### Example
+
+```typescript
+async function* numbers() {
+    yield 1
+    yield 2
+    yield 3
+}
+
+async function* letters() {
+    yield 'a'
+    yield 'b'
+    yield 'c'
+}
+
+// Merge multiple async iterators
+for await (const value of multiplex(numbers(), letters())) {
+    console.log(value) // Will log values as they become available
+}
+
+// Can also be used with async iterables
+const iterable = {
+    async *[Symbol.asyncIterator]() {
+        yield 'x'
+        yield 'y'
+    },
+}
+
+for await (const value of multiplex(numbers(), iterable)) {
+    console.log(value)
 }
 ```
 
