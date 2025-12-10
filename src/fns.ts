@@ -787,17 +787,19 @@ export const multiplex = async function* <T>(
       // Otherwise, yield the value and add it back to the pending list
       else {
         yield result.res.value
+        const iterator = result.iterator
         pending.set(
-          result.iterator,
-          result.iterator.next().then(
-            (res): IteratorSuccess<T> => ({ res, iterator: result.iterator }),
-            (err): IteratorFailure<T> => ({ err, iterator: result.iterator })
+          iterator,
+          iterator.next().then(
+            (res): IteratorSuccess<T> => ({ res, iterator }),
+            (err): IteratorFailure<T> => ({ err, iterator })
           )
         )
       }
     }
   } finally {
     // If we exit the loop, make sure to clean up any remaining iterators
+    // by calling `return`.
     await Promise.all(
       [...pending.keys()].map((iterator) => iterator.return?.())
     )
