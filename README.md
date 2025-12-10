@@ -572,7 +572,13 @@ if (winner === TIMEOUT) {
 
 ### multiplex
 
-Merges multiple async iterators into a single async iterator. The merged iterator yields values as they become available from the input iterators. If any of the input iterators throws an error, the merged iterator will throw an error. The merged iterator terminates when all of the input iterators have terminated.
+Merges multiple async iterators into a single async iterator. The merged
+iterator will yield values as they become available from the input iterators.
+The order in which iterators are initially polled is randomized to prevent
+consistently favoring the first iterator when multiple values are available
+simultaneously. If any of the input iterators throws an error, the merged
+iterator will throw an error. The merged iterator will terminate when all of
+the input iterators have terminated.
 
 #### Parameters
 

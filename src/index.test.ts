@@ -757,7 +757,7 @@ describe('multiplex', () => {
   })
 
   test('should yield values as they become available', async () => {
-    expect.assertions(2)
+    expect.assertions(1)
     async function* slowGen() {
       await setTimeout(100)
       yield 'slow'

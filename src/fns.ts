@@ -1,5 +1,5 @@
 import _debug from 'debug'
-import { clamp, sumBy } from 'lodash'
+import { clamp, shuffle, sumBy } from 'lodash'
 import makeError from 'make-error'
 import { size } from 'obj-walker'
 
@@ -738,9 +738,11 @@ export const waitUntil = (
 /**
  * Merges multiple async iterators into a single async iterator. The merged
  * iterator will yield values as they become available from the input iterators.
- * If any of the input iterators throws an error, the merged iterator will throw
- * an error. The merged iterator will terminate when all of the input iterators
- * have terminated.
+ * The order in which iterators are initially polled is randomized to prevent
+ * consistently favoring the first iterator when multiple values are available
+ * simultaneously. If any of the input iterators throws an error, the merged
+ * iterator will throw an error. The merged iterator will terminate when all of
+ * the input iterators have terminated.
  *
  * @param iters - the async iterators to merge
  */
@@ -754,9 +756,9 @@ export const multiplex = async function* <T>(
       : iter
   )
 
-  // Call next on all iterators
+  // Call next on all iterators in random order to avoid favoring the first iterator
   const pending = new Map(
-    iterators.map((iterator) => [
+    shuffle(iterators).map((iterator) => [
       iterator,
       iterator.next().then(
         (res): IteratorSuccess<T> => ({ res, iterator }),
