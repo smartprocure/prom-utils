@@ -773,21 +773,21 @@ export const multiplex = async function* <T>(
       const values = shuffle([...pending.values()])
       // Wait for the first iterator to resolve
       const result = await Promise.race(values)
+      const iterator = result.iterator
 
       // If it errored, throw the error
       if ('err' in result) {
-        pending.delete(result.iterator)
+        pending.delete(iterator)
         throw result.err
       }
 
       // If it's done, remove it from the pending list
       if (result.res.done) {
-        pending.delete(result.iterator)
+        pending.delete(iterator)
       }
       // Otherwise, yield the value and add it back to the pending list
       else {
         yield result.res.value
-        const iterator = result.iterator
         pending.set(
           iterator,
           iterator.next().then(
