@@ -5,6 +5,7 @@ import {
   batchQueue,
   batchQueueParallel,
   defer,
+  multiplex,
   OptionsError,
   pacemaker,
   pausable,
@@ -730,5 +731,125 @@ describe('raceTimeout', () => {
   test('It should return the TIMEOUT symbol', async () => {
     const winner = await raceTimeout(setTimeout(10, 'done'), 5)
     expect(winner).toBe(TIMEOUT)
+  })
+})
+
+describe('multiplex', () => {
+  test('should handle async iterables', async () => {
+    expect.assertions(1)
+    const iterable1 = {
+      async *[Symbol.asyncIterator]() {
+        yield 'a'
+        yield 'b'
+      },
+    }
+    const iterable2 = {
+      async *[Symbol.asyncIterator]() {
+        yield 'c'
+        yield 'd'
+      },
+    }
+    const results: string[] = []
+    for await (const value of multiplex(iterable1, iterable2)) {
+      results.push(value)
+    }
+    expect(results.sort()).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  test('should yield values as they become available', async () => {
+    expect.assertions(1)
+    async function* slowGen() {
+      await setTimeout(100)
+      yield 'slow'
+    }
+    async function* fastGen() {
+      yield 'fast1'
+      yield 'fast2'
+    }
+    const results: string[] = []
+    for await (const value of multiplex(slowGen(), fastGen())) {
+      results.push(value)
+    }
+    // Should get fast values before slow value
+    expect(results).toEqual(['fast1', 'fast2', 'slow'])
+  })
+
+  test('should handle empty iterators', async () => {
+    expect.assertions(1)
+    async function* emptyGen() {
+      // yields nothing
+    }
+    async function* gen() {
+      yield 1
+      yield 2
+    }
+    const results: number[] = []
+    for await (const value of multiplex(emptyGen(), gen())) {
+      results.push(value)
+    }
+    expect(results).toEqual([1, 2])
+  })
+
+  test('should throw error if any iterator throws', async () => {
+    expect.assertions(1)
+    async function* errorGen() {
+      yield 1
+      throw new Error('Iterator error')
+    }
+    async function* normalGen() {
+      yield 2
+      yield 3
+    }
+    await expect(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _val of multiplex(errorGen(), normalGen())) {
+        // consume values
+      }
+    }).rejects.toThrow('Iterator error')
+  })
+
+  test('should clean up iterators on early exit', async () => {
+    expect.assertions(1)
+    let cleaned = false
+    async function* gen() {
+      try {
+        yield 1
+        yield 2
+        yield 3
+      } finally {
+        cleaned = true
+      }
+    }
+    for await (const value of multiplex(gen())) {
+      if (value === 1) break
+    }
+    // Give cleanup time to run
+    await setTimeout(10)
+    expect(cleaned).toBe(true)
+  })
+
+  test('should handle iterators with different speeds', async () => {
+    expect.assertions(1)
+    async function* gen1() {
+      yield 1
+      await setTimeout(50)
+      yield 2
+      await setTimeout(50)
+      yield 3
+    }
+    async function* gen2() {
+      await setTimeout(25)
+      yield 4
+      await setTimeout(25)
+      yield 5
+      await setTimeout(25)
+      yield 6
+    }
+    const results: number[] = []
+    for await (const value of multiplex(gen1(), gen2())) {
+      results.push(value)
+    }
+    // All values should be present
+    expect(results.sort()).toEqual([1, 2, 3, 4, 5, 6])
   })
 })
