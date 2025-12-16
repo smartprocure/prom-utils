@@ -684,7 +684,7 @@ export const pacemaker = async <T>(
  * @example
  * ```typescript
  * // Wait until a value is returned from Redis
- * const result = await waitUntil(redis.get('someKey'), { timeout: 5000 })
+ * const result = await waitUntil(() => redis.get('someKey'), { timeout: 5000 })
  * ```
  */
 export const waitUntil = <T>(

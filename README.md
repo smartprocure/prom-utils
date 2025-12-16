@@ -529,7 +529,7 @@ interface WaitOptions {
 
 ```typescript
 // Wait until a value is returned from Redis
-const result = await waitUntil(redis.get('someKey'), { timeout: 5000 })
+const result = await waitUntil(() => redis.get('someKey'), { timeout: 5000 })
 ```
 
 ### raceTimeout

@@ -566,6 +566,15 @@ describe('pacemaker', () => {
 })
 
 describe('waitUntil', () => {
+  test('should wait until async pred returns truthy and return the result', async () => {
+    expect.assertions(1)
+    let counter = 0
+    const check = async () => {
+      await setTimeout(100)
+      return counter++ === 1
+    }
+    await expect(waitUntil(check)).resolves.toBe(true)
+  })
   test('should wait until pred returns truthy and return the result', async () => {
     expect.assertions(1)
     let isTruthy = false
@@ -573,14 +582,6 @@ describe('waitUntil', () => {
       isTruthy = true
     }, 250)
     await expect(waitUntil(() => isTruthy)).resolves.toBe(true)
-  })
-  test('should wait until async pred returns truthy and return the result', async () => {
-    expect.assertions(1)
-    let isTruthy = false
-    global.setTimeout(() => {
-      isTruthy = true
-    }, 250)
-    await expect(waitUntil(async () => isTruthy)).resolves.toBe(true)
   })
   test('should handle infinite timeout and return the result', async () => {
     expect.assertions(1)
