@@ -499,11 +499,11 @@ const result = await pacemaker(heartbeatFn, longRunningOperation())
 
 ### waitUntil
 
-Waits until a predicate function returns true or a timeout expires.
+Waits until the predicate returns a truthy value or the timeout expires.
 
 #### Parameters
 
-- `pred: () => Promise<boolean> | boolean` - Predicate function
+- `pred: () => Promise<T> | T` - Predicate function that returns any value
 - `options: WaitOptions` - Configuration options
 
 #### Options
@@ -523,26 +523,13 @@ interface WaitOptions {
 
 #### Returns
 
-- `Promise<void>` - Resolves when the predicate returns true, rejects if timeout expires
+- `Promise<T>` - Resolves with the truthy value returned by the predicate, rejects if timeout expires
 
 #### Example
 
 ```typescript
-let isReady = false
-setTimeout(() => {
-    isReady = true
-}, 2000)
-
-try {
-    await waitUntil(() => isReady, { timeout: 5000 })
-    console.log('Ready!')
-} catch (error) {
-    if (error instanceof TimeoutError) {
-        console.log('Timed out waiting for ready state')
-    } else {
-        throw error
-    }
-}
+// Wait until a value is returned from Redis
+const result = await waitUntil(() => redis.get('someKey'), { timeout: 5000 })
 ```
 
 ### raceTimeout

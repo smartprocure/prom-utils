@@ -675,23 +675,23 @@ export const pacemaker = async <T>(
 }
 
 /**
- * Wait until the predicate returns truthy or the timeout expires.
+ * Wait until the predicate returns a truthy value or the timeout expires.
  * Will not hang like other implementations found on NPM.
  * Inspired by https://www.npmjs.com/package/async-wait-until
- * @returns A promise that resolves or rejects, accordingly.
+ * @returns A promise that resolves with the result of the predicate.
+ * If the timeout expires, the promise will reject with a TimeoutError.
  *
  * @example
  * ```typescript
- * let isTruthy = false
- * setTimeout(() => { isTruthy = true }, 250)
- * await waitUntil(() => isTruthy)
+ * // Wait until a value is returned from Redis
+ * const result = await waitUntil(() => redis.get('someKey'), { timeout: 5000 })
  * ```
  */
-export const waitUntil = (
-  pred: () => Promise<boolean> | boolean,
+export const waitUntil = <T>(
+  pred: () => Promise<T> | T,
   options: WaitOptions = {}
 ) =>
-  new Promise<void>((resolve, reject) => {
+  new Promise<NonNullable<T>>((resolve, reject) => {
     const checkFrequency = options.checkFrequency || 50
     const timeout = options.timeout || 5000
     let checkTimer: ReturnType<typeof setTimeout>
@@ -712,11 +712,12 @@ export const waitUntil = (
     const check = async () => {
       debugWU('check called')
       try {
-        if (await pred()) {
+        const result = await pred()
+        if (result) {
           debugWU('pred returned truthy')
           clearTimeout(checkTimer)
           clearTimeout(timeoutTimer)
-          resolve()
+          resolve(result)
         } else {
           checkLater()
         }

@@ -1,3 +1,7 @@
+# 0.19.0
+
+- BREAKING: `waitUntil` now returns the truthy value from the predicate instead of `void`. The function resolves with the result of the predicate when it becomes truthy.
+
 # 0.18.0
 
 - Added `multiplex` - Merges multiple async iterators into a single async iterator that yields values as they become available.

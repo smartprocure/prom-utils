@@ -566,23 +566,24 @@ describe('pacemaker', () => {
 })
 
 describe('waitUntil', () => {
-  test('should wait until pred returns truthy', async () => {
+  test('should wait until async pred returns truthy and return the result', async () => {
+    expect.assertions(1)
+    let counter = 0
+    const check = async () => {
+      await setTimeout(100)
+      return counter++ === 1
+    }
+    await expect(waitUntil(check)).resolves.toBe(true)
+  })
+  test('should wait until pred returns truthy and return the result', async () => {
     expect.assertions(1)
     let isTruthy = false
     global.setTimeout(() => {
       isTruthy = true
     }, 250)
-    await expect(waitUntil(() => isTruthy)).resolves.toBeUndefined()
+    await expect(waitUntil(() => isTruthy)).resolves.toBe(true)
   })
-  test('should wait until async pred returns truthy', async () => {
-    expect.assertions(1)
-    let isTruthy = false
-    global.setTimeout(() => {
-      isTruthy = true
-    }, 250)
-    await expect(waitUntil(async () => isTruthy)).resolves.toBeUndefined()
-  })
-  test('should handle infinite timeout', async () => {
+  test('should handle infinite timeout and return the result', async () => {
     expect.assertions(1)
     let isTruthy = false
     global.setTimeout(() => {
@@ -590,7 +591,15 @@ describe('waitUntil', () => {
     }, 250)
     await expect(
       waitUntil(async () => isTruthy, { timeout: Infinity })
-    ).resolves.toBeUndefined()
+    ).resolves.toBe(true)
+  })
+  test('should return string value when predicate returns string', async () => {
+    expect.assertions(1)
+    let value: string | null = null
+    global.setTimeout(() => {
+      value = 'ready'
+    }, 250)
+    await expect(waitUntil(() => value)).resolves.toBe('ready')
   })
   test('should throw TimeoutError if the timeout expires', async () => {
     expect.assertions(1)
