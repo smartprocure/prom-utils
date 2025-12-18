@@ -36,11 +36,11 @@ Limits the concurrency of promises. This can be used to control how many request
 #### Parameters
 
 - `concurrency: number` - Maximum number of concurrent promises (set to `Infinity` to disable)
-- `...rateLimiters: RateLimiter[]` - One or more rate limiter configurations (optional)
+- `...rateLimiters: RateLimiter[]` - One or more rate limiters (optional)
 
-#### Rate Limiter Configuration
+#### Rate Limiter
 
-Each rate limiter configuration is an object that extends `ThroughputLimiterOptions`:
+Each rate limiter is an object that extends `ThroughputLimiterOptions`:
 
 ```typescript
 interface RateLimiter extends ThroughputLimiterOptions {

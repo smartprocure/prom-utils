@@ -41,8 +41,8 @@ export const TimeoutError = makeError('TimeoutError')
  * Wrapping `rateLimit` method calls in a try/catch will not work. You can
  * set `limit` to Infinity to disregard the limit.
  *
- * To limit the promises for a given period of time, pass one or more rate limiter
- * configurations. Each rate limiter can specify `maxItemsPerPeriod` and other
+ * To limit the promises for a given period of time, pass one or more rate limiters.
+ * Each rate limiter can specify `maxItemsPerPeriod` and other
  * throughput options. For example, the following limits the number of concurrent
  * requests to 5 and ensures that the rate never exceeds 75 requests per minute.
  *
@@ -120,7 +120,7 @@ export const rateLimit = <T = unknown>(
       )
     }
 
-    // Limit was reached
+    // Max concurrency was reached
     if (set.size === concurrency) {
       debugRL('limit reached: %d', concurrency)
       // Wait for one item to finish
