@@ -35,15 +35,15 @@ Limits the concurrency of promises. This can be used to control how many request
 
 #### Parameters
 
-- `limit: number` - Maximum number of concurrent promises (set to `Infinity` to disable)
-- `options: RateLimitOptions & ThroughputLimiterOptions` - Configuration options
+- `concurrency: number` - Maximum number of concurrent promises (set to `Infinity` to disable)
+- `...rateLimiters: RateLimiter[]` - One or more rate limiter configurations (optional)
 
-#### Options
+#### Rate Limiter Configuration
 
-The `rateLimit` function accepts two types of options:
+Each rate limiter configuration is an object that extends `ThroughputLimiterOptions`:
 
 ```typescript
-interface RateLimitOptions {
+interface RateLimiter extends ThroughputLimiterOptions {
     /**
      * Maximum throughput allowed (items/period). Defaults to items/sec.
      */
@@ -51,7 +51,7 @@ interface RateLimitOptions {
 }
 ```
 
-Since `rateLimit` internally uses `throughputLimiter`, it also accepts all options from `ThroughputLimiterOptions`.
+Since `rateLimit` internally uses `throughputLimiter`, each rate limiter accepts all options from `ThroughputLimiterOptions`.
 Below are the options for `ThroughputLimiterOptions` with the defaults used for `rateLimit`.
 
 ```typescript
@@ -91,7 +91,7 @@ interface ThroughputLimiterOptions {
 {
     /**
      * Add a promise. Waits for one promise to resolve if limit is met or for
-     * throughput to drop below threshold if `maxItemsPerPeriod` is set.
+     * throughput to drop below threshold if any rate limiters are configured.
      * Optionally, set `bypass` to true to bypass async waiting.
      */
     add: (prom: Promise<T>, options?: AddOptions) => Promise<void>
@@ -104,15 +104,17 @@ interface ThroughputLimiterOptions {
      */
     length: number
     /**
-     * Get current rate statistics
+     * Get current rate statistics for all rate limiters
      */
     getStats: () => {
-        itemsPerPeriod: number
+        itemsPerPeriod: number[]
     }
 }
 ```
 
-#### Example
+#### Examples
+
+**Single rate limiter:**
 
 ```typescript
 const limiter = rateLimit(5, { maxItemsPerPeriod: 75, period: 60000 }) // 5 concurrent, max 75 per minute
@@ -122,6 +124,38 @@ for (const url of urls) {
     await limiter.add(fetch(url))
 }
 // Wait for unresolved promises to resolve
+await limiter.finish()
+```
+
+**Multiple rate limiters:**
+
+```typescript
+// Limit to 5 concurrent AND max 100 per second AND max 1000 per minute
+const limiter = rateLimit(
+    5,
+    { maxItemsPerPeriod: 100, period: 1000 },
+    { maxItemsPerPeriod: 1000, period: 60000 }
+)
+
+for (const url of urls) {
+    // Will wait until all rate limiter constraints are satisfied
+    await limiter.add(fetch(url))
+}
+await limiter.finish()
+
+// Get stats for all rate limiters
+const stats = limiter.getStats()
+console.log('Rates:', stats.itemsPerPeriod) // Array of rates for each limiter
+```
+
+**No rate limiters (concurrency only):**
+
+```typescript
+const limiter = rateLimit(10) // Only limit concurrency to 10
+
+for (const url of urls) {
+    await limiter.add(fetch(url))
+}
 await limiter.finish()
 ```
 

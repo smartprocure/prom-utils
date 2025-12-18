@@ -14,7 +14,7 @@ import {
   QueueOptionsParallel,
   QueueResult,
   QueueResultParallel,
-  RateLimitOptions,
+  RateLimiter,
   SlidingWindow,
   ThroughputLimiterOptions,
   WaitOptions,
@@ -41,10 +41,10 @@ export const TimeoutError = makeError('TimeoutError')
  * Wrapping `rateLimit` method calls in a try/catch will not work. You can
  * set `limit` to Infinity to disregard the limit.
  *
- * To limit the promises for a given period of time, use the `maxItemsPerPeriod`
- * option. Optionally, specify a time period using the `period` option (default is 1 second).
- * For example, the following limits the number of concurrent requests to 5
- * and ensures that the rate never exceeds 75 requests per minute.
+ * To limit the promises for a given period of time, pass one or more rate limiter
+ * configurations. Each rate limiter can specify `maxItemsPerPeriod` and other
+ * throughput options. For example, the following limits the number of concurrent
+ * requests to 5 and ensures that the rate never exceeds 75 requests per minute.
  *
  * @example
  * ```typescript
@@ -58,30 +58,33 @@ export const TimeoutError = makeError('TimeoutError')
  * ```
  */
 export const rateLimit = <T = unknown>(
-  limit: number,
-  options: RateLimitOptions & ThroughputLimiterOptions = {}
+  concurrency: number,
+  ...limiters: RateLimiter[]
 ) => {
-  const { maxItemsPerPeriod } = options
-  debugRL('init - limit %d', limit)
-  debugRL('init - maxItemsPerPeriod %d', maxItemsPerPeriod)
+  debugRL('init %O', { concurrency, limiters })
   // Set of promises
   const set = new Set<Promise<T>>()
-  // Default period to 1 second
-  const period = options.period || 1000
-  // Items/period limiter
-  const itemsLimiter = throughputLimiter(maxItemsPerPeriod ?? Infinity, {
-    // Allow for high throughput at the start of the period
-    getTimeframe: getTimeframeUsingPeriod,
-    // Expire items after the period
-    expireAfter: period,
-    period,
-    // Ensure that the sliding window accurately captures all items for the period
-    maxWindowLength: maxItemsPerPeriod,
-    ...options,
+
+  // Create throughput limiters for each rate limiter configuration
+  const throughputLimiters = limiters.map((options) => {
+    const { maxItemsPerPeriod, period = 1000 } = options
+    debugRL('throughputLimiter: %o', { maxItemsPerPeriod, period })
+
+    return throughputLimiter(maxItemsPerPeriod ?? Infinity, {
+      // Allow for high throughput at the start of the period
+      getTimeframe: getTimeframeUsingPeriod,
+      // Expire items after the period
+      expireAfter: period,
+      period,
+      // Ensure that the sliding window accurately captures all items for the period
+      maxWindowLength: maxItemsPerPeriod,
+      ...options,
+    })
   })
+
   /**
    * Add a promise. Waits for one promise to resolve if limit is met or for
-   * throughput to drop below threshold if `maxItemsPerPeriod` is set.
+   * throughput to drop below threshold if any rate limiters are configured.
    * Optionally, set `bypass` to true to bypass async waiting.
    */
   const add = async (prom: Promise<T>, options: AddOptions = {}) => {
@@ -108,24 +111,32 @@ export const rateLimit = <T = unknown>(
     if (options.bypass) {
       return
     }
-    // Apply throughput limiter
-    if (maxItemsPerPeriod) {
-      // Wait for the throughput to drop below threshold for items/period
-      await itemsLimiter.appendAndThrottle(1)
+
+    // Apply all throughput limiters
+    if (throughputLimiters.length > 0) {
+      // Wait for all throughput limiters to drop below their thresholds
+      await Promise.all(
+        throughputLimiters.map((limiter) => limiter.appendAndThrottle(1))
+      )
     }
+
     // Limit was reached
-    if (set.size === limit) {
-      debugRL('limit reached: %d', limit)
+    if (set.size === concurrency) {
+      debugRL('limit reached: %d', concurrency)
       // Wait for one item to finish
       await Promise.race(set)
     }
   }
+
   /**
-   * items/period
+   * Get stats for all rate limiters
    */
   const getStats = () => ({
-    itemsPerPeriod: itemsLimiter.getCurrentRate(),
+    itemsPerPeriod: throughputLimiters.map((limiter) =>
+      limiter.getCurrentRate()
+    ),
   })
+
   /**
    * Wait for all promises to resolve
    */
@@ -133,6 +144,7 @@ export const rateLimit = <T = unknown>(
     debugRL('finish')
     await Promise.allSettled(set)
   }
+
   return {
     add,
     finish,
