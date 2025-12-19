@@ -42,11 +42,23 @@ export type QueueResultParallel<A, B> = {
   get length(): number
 }
 
-export interface RateLimitOptions {
+/**
+ * A simplified abstraction of a throughput limiter.
+ *
+ * Extends {@link ThroughputLimiterOptions}
+ *
+ * @remarks
+ * The following defaults are applied when passed to `rateLimit`:
+ * - `period`: 1000 ms (1 second)
+ * - `getTimeframe`: `getTimeframeUsingPeriod` (allows high throughput at start of period)
+ * - `expireAfter`: Same as `period`
+ * - `maxWindowLength`: Same as `maxItemsPerPeriod`
+ */
+export interface RateLimiter extends ThroughputLimiterOptions {
   /**
-   * Maximum throughput allowed (items/period). Defaults to items/sec.
+   * Maximum throughput allowed (items/period)
    */
-  maxItemsPerPeriod?: number
+  maxItemsPerPeriod: number
 }
 
 export interface AddOptions {
@@ -129,5 +141,8 @@ export interface ThroughputLimiterOptions {
 
 export type AsyncIter<T> = AsyncIterator<T> | AsyncIterable<T>
 
-export type IteratorSuccess<T> = { res: IteratorResult<T>; iterator: AsyncIterator<T> }
+export type IteratorSuccess<T> = {
+  res: IteratorResult<T>
+  iterator: AsyncIterator<T>
+}
 export type IteratorFailure<T> = { err: unknown; iterator: AsyncIterator<T> }

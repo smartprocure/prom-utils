@@ -1,6 +1,6 @@
 {
   "name": "prom-utils",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "Promise utilities: rate limiting, queueing/batching, defer, etc.",
   "author": "GovSpend",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "build:watch": "tsc --watch",
     "test": "vitest run",
     "test:ui": "vitest --ui",
-    "test:debug": "DEBUG=prom-utils:* vitest run --disable-console-intercept --reporter=basic",
+    "test:debug": "DEBUG=prom-utils:* vitest run --disable-console-intercept",
     "test:watch": "vitest",
     "lint": "eslint src/**"
   },

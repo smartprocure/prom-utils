@@ -1,3 +1,9 @@
+# 0.20.0
+
+- `rateLimit` accepts multiple `RateLimiter` objects.
+   - A new `RateLimiter` interface has been created in place of `RateLimitOptions`. The `maxItemsPerPeriod` field is now required.
+   - The `getStats` method now returns an array of stats objects.
+
 # 0.19.0
 
 - BREAKING: `waitUntil` now returns the truthy value from the predicate instead of `void`. The function resolves with the result of the predicate when it becomes truthy.

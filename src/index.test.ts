@@ -137,6 +137,69 @@ describe('rateLimit', () => {
     const elapsed = endTime - startTime
     expect(elapsed).toBeLessThan(150)
   })
+  test('should handle multiple rate limiters', async () => {
+    expect.assertions(1)
+    // 2 requests per 100ms AND 5 requests per 500ms
+    const limiter = rateLimit(
+      Infinity,
+      { maxItemsPerPeriod: 2, period: 100 },
+      { maxItemsPerPeriod: 5, period: 500 }
+    )
+    const startTime = new Date().getTime()
+    // Add 6 requests - should be limited by the 5 per 500ms limiter
+    for (let i = 0; i < 6; i++) {
+      await limiter.add(setTimeout(10))
+    }
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    // Should take at least 500ms due to the second limiter
+    expect(elapsed).toBeGreaterThanOrEqual(500)
+  })
+  test('should return stats for all rate limiters', async () => {
+    expect.assertions(2)
+    const limiter = rateLimit(
+      Infinity,
+      { maxItemsPerPeriod: 10, period: 1000 },
+      { maxItemsPerPeriod: 100, period: 60000 }
+    )
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.finish()
+    const stats = limiter.getStats()
+    // Should return an array with rates for each limiter
+    expect(stats.itemsPerPeriod).toBeInstanceOf(Array)
+    expect(stats.itemsPerPeriod.length).toBe(2)
+  })
+  test('should return empty array for getStats when no rate limiters', async () => {
+    expect.assertions(1)
+    const limiter = rateLimit(3)
+    await limiter.add(setTimeout(10))
+    await limiter.finish()
+    const stats = limiter.getStats()
+    expect(stats.itemsPerPeriod).toEqual([])
+  })
+  test('should enforce the most restrictive rate limiter', async () => {
+    expect.assertions(1)
+    // First limiter: 10 per 100ms (very permissive)
+    // Second limiter: 2 per 1000ms (very restrictive)
+    const limiter = rateLimit(
+      Infinity,
+      { maxItemsPerPeriod: 10, period: 100 },
+      { maxItemsPerPeriod: 2, period: 1000 }
+    )
+    const startTime = new Date().getTime()
+    // Add 3 requests - should be limited by the 2 per 1000ms limiter
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.add(setTimeout(10))
+    await limiter.finish()
+    const endTime = new Date().getTime()
+    const elapsed = endTime - startTime
+    // Should take at least 1000ms due to the restrictive limiter
+    expect(elapsed).toBeGreaterThanOrEqual(1000)
+  })
 })
 
 describe('batchQueue', () => {
