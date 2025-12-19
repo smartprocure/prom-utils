@@ -61,7 +61,7 @@ export const rateLimit = <T = unknown>(
   concurrency: number,
   ...limiters: RateLimiter[]
 ) => {
-  debugRL('init %O', { concurrency, limiters })
+  debugRL('concurrency: %d', concurrency)
   // Set of promises
   const set = new Set<Promise<T>>()
 
