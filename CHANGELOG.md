@@ -1,6 +1,6 @@
 # 0.20.0
 
-- `rateLimit` accepts multiple `RateLimiter` objects. Interfaces have changed slightly. The `getStats` method now returns an array of stats objects.
+- `rateLimit` accepts multiple `RateLimiter` objects. Interfaces have changed slightly but existing code will work. The `getStats` method now returns an array of stats objects.
 
 # 0.19.0
 
