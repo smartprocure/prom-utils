@@ -68,9 +68,9 @@ export const rateLimit = <T = unknown>(
   // Create throughput limiters for each rate limiter configuration
   const throughputLimiters = limiters.map((options) => {
     const { maxItemsPerPeriod, period = 1000 } = options
-    debugRL('throughputLimiter: %o', { maxItemsPerPeriod, period })
+    debugRL('limiter: %o', { maxItemsPerPeriod, period })
 
-    return throughputLimiter(maxItemsPerPeriod ?? Infinity, {
+    return throughputLimiter(maxItemsPerPeriod, {
       // Allow for high throughput at the start of the period
       getTimeframe: getTimeframeUsingPeriod,
       // Expire items after the period

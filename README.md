@@ -45,9 +45,9 @@ Each rate limiter is an object that extends `ThroughputLimiterOptions`:
 ```typescript
 interface RateLimiter extends ThroughputLimiterOptions {
     /**
-     * Maximum throughput allowed (items/period). Defaults to items/sec.
+     * Maximum throughput allowed (items/period)
      */
-    maxItemsPerPeriod?: number
+    maxItemsPerPeriod: number
 }
 ```
 

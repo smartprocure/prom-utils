@@ -53,13 +53,12 @@ export type QueueResultParallel<A, B> = {
  * - `getTimeframe`: `getTimeframeUsingPeriod` (allows high throughput at start of period)
  * - `expireAfter`: Same as `period`
  * - `maxWindowLength`: Same as `maxItemsPerPeriod`
- * - `maxItemsPerPeriod`: Infinity (no limit)
  */
 export interface RateLimiter extends ThroughputLimiterOptions {
   /**
-   * Maximum throughput allowed (items/period). Defaults to items/sec.
+   * Maximum throughput allowed (items/period)
    */
-  maxItemsPerPeriod?: number
+  maxItemsPerPeriod: number
 }
 
 export interface AddOptions {
